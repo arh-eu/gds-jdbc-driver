@@ -142,6 +142,9 @@ public class GdsResultSetMetaData implements ResultSetMetaData {
                 return rs.getBoolean("searchable");
             }
         }
+        if(columnMetaData.get(column-1).name.equals("@@version") || columnMetaData.get(column-1).name.equals("@ttl") || columnMetaData.get(column-1).name.equals("@to_valid")) {
+            return false;
+        }
         throw new SQLException("Cannot find column: " + column + ". (Aliased columns are not supported with isSearchable(..)!");
     }
 
