@@ -6,28 +6,32 @@
 
 package hu.gds.jdbc.metainfo;
 
-import java.util.Map;
-import java.util.Objects;
-import java.util.TreeMap;
+import org.msgpack.value.Value;
+
+import java.util.*;
 
 public class GdsTable {
     private final String tableName;
     private final TreeMap<String, ColumnInfo> columns;
+    private final boolean isVirtualTable;
+    private final String tableType;
+    private List<Value> JDBCDescriptor;
 
-    public GdsTable(String tableName) {
-        this(tableName, new TreeMap<>());
-    }
-
-    public GdsTable(String tableName, TreeMap<String, ColumnInfo> columns) {
+    public GdsTable(String tableName, String tableType, boolean isVirtualTable) {
         this.tableName = tableName;
-        this.columns = columns;
+        this.tableType = tableType;
+        this.columns = new TreeMap<>();
+        this.isVirtualTable = isVirtualTable;
+        this.JDBCDescriptor = null;
     }
 
+    public boolean isVirtualTable() {
+        return isVirtualTable;
+    }
 
     public ColumnInfo addColumn(ColumnInfo info) {
         return addColumn(info.getColumnName(), info);
     }
-
 
     public ColumnInfo addColumn(String name, ColumnInfo info) {
         return columns.put(name, info);
@@ -53,7 +57,6 @@ public class GdsTable {
         return ordinalColumns;
     }
 
-
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
@@ -66,5 +69,17 @@ public class GdsTable {
     @Override
     public int hashCode() {
         return Objects.hash(tableName, columns);
+    }
+
+    public String getType() {
+        return tableType;
+    }
+
+    public void setJDBCDescriptor(List<Value> value) {
+        this.JDBCDescriptor = value;
+    }
+
+    public List<Value> getJDBCDescriptor() {
+        return JDBCDescriptor;
     }
 }

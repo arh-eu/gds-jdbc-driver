@@ -1,12 +1,20 @@
 package hu.gds.jdbc;
 
 import hu.arheu.gds.message.data.ConsistencyType;
+import hu.gds.jdbc.error.ClosedResultSetException;
+import hu.gds.jdbc.error.ExhaustedResultSetException;
+import hu.gds.jdbc.error.InvalidParameterException;
 import hu.gds.jdbc.executor.DMLExecutor;
 import hu.gds.jdbc.executor.DQLExecutor;
-import hu.gds.jdbc.resultset.DMLResultSet;
 import hu.gds.jdbc.resultset.AbstractGdsResultSet;
+import hu.gds.jdbc.resultset.DMLResultSet;
+import hu.gds.jdbc.util.GdsConstants;
+import hu.gds.jdbc.util.StringEscapeUtils;
 import net.sf.jsqlparser.expression.*;
-import net.sf.jsqlparser.expression.operators.relational.*;
+import net.sf.jsqlparser.expression.operators.relational.EqualsTo;
+import net.sf.jsqlparser.expression.operators.relational.ExpressionList;
+import net.sf.jsqlparser.expression.operators.relational.ItemsList;
+import net.sf.jsqlparser.expression.operators.relational.LikeExpression;
 import net.sf.jsqlparser.parser.CCJSqlParserUtil;
 import net.sf.jsqlparser.schema.Column;
 import net.sf.jsqlparser.schema.Table;
@@ -16,10 +24,10 @@ import net.sf.jsqlparser.statement.merge.Merge;
 import net.sf.jsqlparser.statement.select.*;
 import net.sf.jsqlparser.statement.update.Update;
 import net.sf.jsqlparser.util.deparser.ExpressionDeParser;
+import net.sf.jsqlparser.util.deparser.InsertDeParser;
 import net.sf.jsqlparser.util.deparser.SelectDeParser;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
-import reactor.util.concurrent.Queues;
 
 import java.nio.charset.StandardCharsets;
 import java.sql.*;
@@ -27,23 +35,21 @@ import java.util.*;
 
 @SuppressWarnings("RedundantThrows")
 public abstract class GdsBaseStatement implements Statement {
-    public final static String ATTACHMENT_TABLE_SUFFIX = "-@attachment\"";
-    public final static String ATTACHMENT_ID_FIELD = "id";
-    public final static String ATTACHMENT_DATA_FIELD = "data";
     protected final boolean isReadOnly;
     protected GdsJdbcConnection connection;
     protected AbstractGdsResultSet dqlOrMultiDmlResultSet;
     protected AbstractGdsResultSet currentResultSet;
-    private int fetchSize = Queues.SMALL_BUFFER_SIZE;
+    private int fetchSize = 256;
     private boolean isClosed = false;
     private int updateCount = -1;
+    private int maxRows = 0;
     private final static List<String> allAttachmentFields = Arrays.asList(
-            "id",
-            "meta",
-            "ownerid",
-            "data",
-            "@ttl",
-            "@to_valid");
+            GdsConstants.ID_FIELD,
+            GdsConstants.META_FIELD,
+            GdsConstants.OWNER_ID_FIELD,
+            GdsConstants.DATA_FIELD,
+            GdsConstants.TTL_FIELD,
+            GdsConstants.TO_VALID_FIELD);
 
     /* Vector for batch commands */
     private Vector<String> batch = null;
@@ -68,7 +74,7 @@ public abstract class GdsBaseStatement implements Statement {
 
     @Override
     public void close() throws SQLException {
-        synchronized(this) {
+        synchronized (this) {
             if (isClosed) {
                 return;
             }
@@ -87,10 +93,10 @@ public abstract class GdsBaseStatement implements Statement {
 
     void checkClosed(boolean checkResultSet) throws SQLException {
         if (checkResultSet && null == currentResultSet) {
-            throw new SQLException("Exhausted ResultSet. There is no current or more result set");
+            throw new ExhaustedResultSetException("There is no current or more result set");
         }
         if (isClosed) {
-            throw new SQLException("Statement was previously closed.");
+            throw new ClosedResultSetException("Statement was previously closed.");
         }
     }
 
@@ -125,7 +131,7 @@ public abstract class GdsBaseStatement implements Statement {
                     }
                     Insert insert = (Insert) statement;
                     table = insert.getTable().getName();
-                    if (null != table && table.endsWith(ATTACHMENT_TABLE_SUFFIX)) {
+                    if (null != table && table.endsWith(GdsConstants.ATTACHMENT_TABLE_SUFFIX)) {
                         if (null == attachments) {
                             attachments = new HashMap<>();
                         }
@@ -133,6 +139,40 @@ public abstract class GdsBaseStatement implements Statement {
                     } else {
                         onlyAttachmentDML = false;
                     }
+                    List<Column> columns = insert.getColumns();
+                    List<Integer> shouldRemove = new ArrayList<>();
+                    Integer[] ttl_field_index = new Integer[1];
+                    Boolean[] ttl_field_null = new Boolean[1];
+                    ttl_field_null[0] = false;
+                    for (int j = columns.size() - 1; j >= 0; j--) {
+                        if (GdsConstants.isReadOnlyField(StringEscapeUtils.unescapeAtSymbol(columns.get(j).getColumnName()))) {
+                            shouldRemove.add(j);
+                            columns.remove(j);
+                        } else if (GdsConstants.TTL_FIELD.equals(StringEscapeUtils.unescapeAtSymbol(columns.get(j).getColumnName()))) {
+                            ttl_field_index[0] = j;
+                        }
+                    }
+                    insert.getItemsList().accept(new InsertDeParser() {
+                        @Override
+                        public void visit(ExpressionList expressionList) {
+                            List<Expression> expressions = expressionList.getExpressions();
+                            if (ttl_field_index[0] != null) {
+                                expressions.get(ttl_field_index[0]).accept(new ExpressionDeParser() {
+                                    @Override
+                                    public void visit(NullValue nullValue) {
+                                        ttl_field_null[0] = true;
+                                    }
+                                });
+                                if (ttl_field_null[0]) {
+                                    expressions.set(ttl_field_index[0], new LongValue(Long.MAX_VALUE));
+                                }
+                            }
+                            for (int i : shouldRemove) {
+                                expressions.remove(i);
+                            }
+
+                        }
+                    });
                     dmlFound = true;
                 } else if (statement instanceof Update) {
                     if (dqlFound) {
@@ -140,6 +180,46 @@ public abstract class GdsBaseStatement implements Statement {
                     }
                     onlyAttachmentDML = false;
                     dmlFound = true;
+                    Update update = (Update) statement;
+                    Table updateTable = update.getTable();
+                    updateTable.setAlias(null);
+                    List<Column> columns = update.getColumns();
+                    for (Column c : columns) {
+                        c.setTable(null);
+                        if (GdsConstants.isReadOnlyField(StringEscapeUtils.unescapeAtSymbol(c.getName(false)))) {
+                            throw new SQLException("The field " + c.getName(false) + " is not updatable!");
+                        }
+                    }
+                    ResultSet rs = connection.getMetaData().getPrimaryKeys(null, null, updateTable.getName());
+                    ArrayList<String> keys = new ArrayList<>();
+                    while (rs.next()) {
+                        keys.add(rs.getString("COLUMN_NAME"));
+                    }
+                    EqualsTo[] keyExpression = new EqualsTo[1];
+                    Boolean[] idLikeExpressionFound = new Boolean[1];
+                    idLikeExpressionFound[0] = false;
+                    update.getWhere().accept(new ExpressionDeParser() {
+                        @Override
+                        public void visit(LikeExpression likeExpression) {
+                            if (likeExpression.getLeftExpression() instanceof Column) {
+                                if (keys.contains(((Column) likeExpression.getLeftExpression()).getColumnName())) {
+                                    keyExpression[0] = new EqualsTo();
+                                    likeExpression.getLeftExpression().accept(new ExpressionDeParser() {
+                                        @Override
+                                        public void visit(Column tableColumn) {
+                                            tableColumn.setTable(null);
+                                        }
+                                    });
+                                    keyExpression[0].setLeftExpression(likeExpression.getLeftExpression());
+                                    keyExpression[0].setRightExpression(likeExpression.getRightExpression());
+                                    idLikeExpressionFound[0] = true;
+                                }
+                            }
+                        }
+                    });
+                    if (idLikeExpressionFound[0]) {
+                        update.setWhere(keyExpression[0]);
+                    }
                 } else if (statement instanceof Merge) {
                     if (dqlFound) {
                         throw new SQLException("In sql statement not allowed to use SELECT and DML (INSERT, UPDATE, MERGE) statements.");
@@ -160,7 +240,6 @@ public abstract class GdsBaseStatement implements Statement {
                     onlyAttachmentDML = false;
                     Select select = (Select) statement;
                     final String[] tempTable = new String[1];
-
                     select.getSelectBody().accept(new SelectDeParser() {
 
                         @Override
@@ -196,15 +275,38 @@ public abstract class GdsBaseStatement implements Statement {
                                     });
                                 }
                             });
+                            if (maxRows > 0) {
+                                Expression e;
+                                final long[] originalLimit = new long[1];
+                                Limit l = new Limit();
+                                if (plainSelect.getLimit() != null) {
+                                    e = plainSelect.getLimit().getRowCount();
+                                    ExpressionDeParser parser = new ExpressionDeParser() {
+                                        @Override
+                                        public void visit(LongValue longValue) {
+                                            originalLimit[0] = longValue.getValue();
+                                        }
+                                    };
+                                    e.accept(parser);
+                                    if (maxRows < originalLimit[0]) {
+                                        l.setRowCount(new LongValue(maxRows));
+                                    } else {
+                                        l.setRowCount(new LongValue(originalLimit[0]));
+                                    }
+                                } else {
+                                    l.setRowCount(new LongValue(maxRows));
+                                }
+                                plainSelect.setLimit(l);
+                            }
                         }
                     });
                     table = tempTable[0];
-                    if (null != table && table.endsWith(ATTACHMENT_TABLE_SUFFIX)) {
+                    if (null != table && table.endsWith(GdsConstants.ATTACHMENT_TABLE_SUFFIX)) {
                         attachmentDQL = true;
                     }
                     selectTableName = table;
                 } else {
-                    throw new SQLException("Unsupported statement found: " + statement + ". Only INSERT, UPDATE, MERGE, SELECT allowed");
+                    throw new SQLException("Unsupported statement found: " + statement + ". Only INSERT, UPDATE, MERGE, SELECT are allowed");
                 }
                 builtSql.append(statement).append(";");
                 if (i < statementsCounter - 1) {
@@ -234,26 +336,22 @@ public abstract class GdsBaseStatement implements Statement {
             }
 
             mutationCount = setNewResultSet(resultSet);
-            return mutationCount == -1;
+
+            if (resultSet.isDml()) {
+                return !resultSet.asDmlResultSet().getCurrentDMLResultSetWrapper().isNull();
+            } else {
+                return mutationCount == -1;
+            }
         } catch (Throwable t) {
             //ha nincs hiba, akkor a régi resultset cserélődik, ha hiba történt, akkor viszont az előzőt bekell zárni --> h2 így működik
-            if(currentResultSet != null) {
+            if (currentResultSet != null) {
                 currentResultSet.close();
             }
-            if(dqlOrMultiDmlResultSet != null) {
+            if (dqlOrMultiDmlResultSet != null) {
                 dqlOrMultiDmlResultSet.close();
             }
             throw new SQLException(t);
         }
-    }
-
-    private void processOnlyAttachmentDml(Insert insert) {
-        String tableName;
-        String attachmentId;
-        String meta;
-        Long ttl;
-        Long toValid;
-        byte[] attachment;
     }
 
     private void replaceAttachmentHexBinary(Insert insert, Map<String, byte[]> attachments) throws SQLException {
@@ -265,18 +363,18 @@ public abstract class GdsBaseStatement implements Statement {
         int attachmentIdIndex = -1;
         for (int i = 0; i < columns.size(); i++) {
             Column column = columns.get(i);
-            if (ATTACHMENT_ID_FIELD.equals(column.getColumnName())) {
+            if (GdsConstants.ID_FIELD.equals(column.getColumnName())) {
                 attachmentIdIndex = i;
             }
-            if (ATTACHMENT_DATA_FIELD.equals(column.getColumnName())) {
+            if (GdsConstants.DATA_FIELD.equals(column.getColumnName())) {
                 attachmentDataIndex = i;
             }
         }
         if (-1 == attachmentIdIndex) {
-            throw new SQLException("There is no id coulumn in attachment insert", insert.toString(), -1);
+            throw new SQLException("There is no id column in attachment insert", insert.toString(), -1);
         }
         if (-1 == attachmentDataIndex) {
-            throw new SQLException("There is no data coulumn in attachment insert", insert.toString(), -1);
+            throw new SQLException("There is no data column in attachment insert", insert.toString(), -1);
         }
         ItemsList itemsList = insert.getItemsList();
         ExpressionList expressionList = (ExpressionList) itemsList;
@@ -319,18 +417,29 @@ public abstract class GdsBaseStatement implements Statement {
         if (null == resultSet) {
             throw new SQLException("Null resultSet");
         }
+        if (currentResultSet != null && !currentResultSet.isClosed()) {
+            currentResultSet.close();
+        }
         if (resultSet != this.dqlOrMultiDmlResultSet
                 && null != this.dqlOrMultiDmlResultSet) {
             this.dqlOrMultiDmlResultSet.close();
             this.currentResultSet.close();
         }
         long mutationCount = resultSet.isDql() ? resultSet.asDqlResultSet().getMutationCount() : resultSet.asDmlResultSet().getCurrentDMLResultSet().getMutationCount();
-        this.updateCount = coalesceInt(mutationCount);
         this.dqlOrMultiDmlResultSet = resultSet;
         if (resultSet.isDml()) {
-            currentResultSet = resultSet.asDmlResultSet().getCurrentDMLResultSet();
+            if (resultSet.asDmlResultSet().getCurrentDMLResultSetWrapper().isNull()) {
+                currentResultSet = null;
+            } else {
+                currentResultSet = resultSet.asDmlResultSet().getCurrentDMLResultSet();
+            }
         } else {
             currentResultSet = resultSet;
+        }
+        if (currentResultSet != null) {
+            this.updateCount = -1;
+        } else {
+            this.updateCount = coalesceInt(mutationCount);
         }
         return mutationCount;
     }
@@ -347,31 +456,32 @@ public abstract class GdsBaseStatement implements Statement {
 
     @Override
     public boolean getMoreResults() throws SQLException {
-        if(currentResultSet == null) {
-            return false;
-        }
         checkClosed(false);
         DMLResultSet dmlResultSet;
         if (dqlOrMultiDmlResultSet.isDql()
                 || !(dmlResultSet = dqlOrMultiDmlResultSet.asDmlResultSet()).hasNextDMLResultSet()) {
             dqlOrMultiDmlResultSet.close();
-            currentResultSet.close();
+            if (currentResultSet != null) {
+                currentResultSet.close();
+                currentResultSet = null;
+            }
+            updateCount = -1;
             return false;
         }
         dmlResultSet.nextDMLResultSet();
         setNewResultSet(dmlResultSet);
-        return true;
+        return !dmlResultSet.getCurrentDMLResultSetWrapper().isNull();
     }
 
     @Override
     public int getUpdateCount() throws SQLException {
-        checkClosed(true);
+        checkClosed(false);
         return updateCount;
     }
 
     @Override
     public ResultSet getResultSet() throws SQLException {
-        checkClosed(true);
+        checkClosed(false);
         return currentResultSet;
     }
 
@@ -448,13 +558,18 @@ public abstract class GdsBaseStatement implements Statement {
 
     @Override
     public int getMaxRows() throws SQLException {
-        throw new SQLFeatureNotSupportedException();
+        checkClosed(false);
+        return maxRows;
     }
 
     @Override
     public void setMaxRows(int max) throws SQLException {
-        //max rows are determined by the GDS and the query page size and query type variables.
-        throw new SQLFeatureNotSupportedException();
+        checkClosed(false);
+        if (max < 0) {
+            throw new InvalidParameterException("The maxRows value must be non-negative.");
+        } else {
+            maxRows = max;
+        }
     }
 
     @Override

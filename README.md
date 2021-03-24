@@ -1,8 +1,6 @@
 # GDS JDBC Driver
 
-The GDS JDBC Driver allows a connection towards a GDS instance for Java programs without having to bother with database (GDS) specific codes. The communication uses the [GDS Java SDK](http://github.com/arh-eu/gds-java-sdk) behind the scenes.
-
-You might want to check the GDS wiki for additional information about the system (see [here](https://github.com/arh-eu/gds/wiki)).
+The GDS JDBC Driver allows a connection towards a GDS instance for Java programs without having to bother with the database (GDS) specific codes. The communication uses the [GDS Java SDK](http://github.com/arh-eu/gds-java-sdk) behind the scenes.
 
 ## System requirements
 
@@ -24,7 +22,7 @@ Probably you do not need to manually compile the driver. You simply download the
     <dependencies>
         <dependency>
             <groupId>com.github.arh-eu</groupId>
-            <artifactId>gds-jdbc-driver</artifactId>
+            <artifactId>gds-jdbc</artifactId>
             <version>1.0</version>
         </dependency>
     </dependencies>
@@ -37,7 +35,7 @@ This driver implements the JDBC standard, therefore it can be used as any other 
 
 If you need help on how to use JDBC drivers, check out the [official Java™ tutorials](https://docs.oracle.com/javase/tutorial/jdbc/).
 
-The commonly used Java interfaces and their implementations are the following:
+The commonly used Java interfaces, and their implementations are the following:
 
 | Interface | Implemented in |
 | --- | --- |

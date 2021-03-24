@@ -1,5 +1,6 @@
 package hu.gds.jdbc;
 
+import hu.gds.jdbc.error.GdsException;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -37,7 +38,7 @@ public class GdsJdbcDriver implements Driver {
                 }
                 return new GdsJdbcConnection(clientURI, gdsConnection, this, info);
             } catch (Exception e) {
-                throw new SQLException(e.getMessage(), e);
+                throw new GdsException(e.getMessage(), e);
             }
         }
         return null;
@@ -53,12 +54,12 @@ public class GdsJdbcDriver implements Driver {
     }
 
     @Override
-    public DriverPropertyInfo[] getPropertyInfo(String url, Properties info) throws SQLException {
+    public DriverPropertyInfo[] getPropertyInfo(String url, Properties info) {
         return DriverPropertyInfoHelper.getPropertyInfo();
     }
 
     String getVersion() {
-        return "1.0.0";
+        return "1.1.0";
     }
 
     @Override

@@ -11,6 +11,7 @@ import hu.arheu.gds.message.data.impl.AttachmentResultHolderImpl;
 import hu.arheu.gds.message.data.impl.MessageData7AttachmentResponseAckImpl;
 import hu.arheu.gds.message.header.MessageHeader;
 import hu.arheu.gds.message.header.MessageHeaderBase;
+import hu.gds.jdbc.error.GdsException;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelFuture;
 
@@ -25,7 +26,6 @@ import java.util.logging.Logger;
  * This class holds and manages the connection towards the GDS.
  */
 public class GdsConnection {
-    private final GdsClientURI clientURI;
     private final AsyncGDSClient client;
     private boolean connected = false;
     private boolean inited = false;
@@ -56,6 +56,7 @@ public class GdsConnection {
 
         /**
          * Run the query, and wait for complete the query or timeout the request
+         *
          * @return The query result for 10 and 12 query request
          */
         public MessageData11QueryRequestAck executeAndGetQueryResult() throws Throwable {
@@ -64,6 +65,7 @@ public class GdsConnection {
 
         /**
          * Run the DML event, and wait for complete the event or timeout the request
+         *
          * @return The DML result for 2 event request
          */
         public MessageData3EventAck executeAndGetDmlResult() throws Throwable {
@@ -186,7 +188,6 @@ public class GdsConnection {
     }
 
     public GdsConnection(GdsClientURI clientURI) throws Throwable {
-        this.clientURI = clientURI;
         AsyncGDSClient.AsyncGDSClientBuilder builder = AsyncGDSClient.getBuilder();
         builder
                 .withUserName(clientURI.userName)
@@ -223,7 +224,8 @@ public class GdsConnection {
                             lock.notifyAll();
                             try {
                                 GdsConnection.this.close();
-                            } catch (SQLException ignored) {}
+                            } catch (SQLException ignored) {
+                            }
                         }
                         for (OneTimeSyncTransactionExecutor executor : executors) {
                             executor.disconnected();
@@ -238,7 +240,8 @@ public class GdsConnection {
                             lock.notifyAll();
                             try {
                                 GdsConnection.this.close();
-                            } catch (SQLException ignored) {}
+                            } catch (SQLException ignored) {
+                            }
                         }
                         for (OneTimeSyncTransactionExecutor executor : executors) {
                             executor.disconnected();
@@ -287,11 +290,11 @@ public class GdsConnection {
                 });
         if (clientURI.sslEnabled) {
             builder
-                    .withURI("wss://"+clientURI.host+"/"+clientURI.gateUrl)
+                    .withURI("wss://" + clientURI.host + "/" + clientURI.gateUrl)
                     .withTLS(clientURI.keyStorePath, clientURI.keyStorePassword);
         } else {
             builder
-                    .withURI("ws://"+clientURI.host+"/"+clientURI.gateUrl);
+                    .withURI("ws://" + clientURI.host + "/" + clientURI.gateUrl);
         }
         client = builder.build();
     }
@@ -307,7 +310,7 @@ public class GdsConnection {
         synchronized (lock) {
             if (closed) {
                 client.close();
-                throw new SQLException("Connection failed, already closed");
+                throw new GdsException("Connection failed, already closed");
             }
             client.connect();
             initialized = true;
@@ -316,9 +319,9 @@ public class GdsConnection {
             }
             if (!connected) {
                 if (null != reason) {
-                    throw new SQLException("Connection failed: " + reason);
+                    throw new GdsException("Connection failed: " + reason);
                 } else {
-                    throw new SQLException("Connection failed");
+                    throw new GdsException("Connection failed");
                 }
             }
         }

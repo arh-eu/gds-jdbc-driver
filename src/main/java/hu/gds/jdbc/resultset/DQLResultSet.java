@@ -9,6 +9,10 @@ import hu.gds.jdbc.DriverPropertyInfoHelper;
 import hu.gds.jdbc.GdsBaseStatement;
 import hu.gds.jdbc.GdsConnection;
 import hu.gds.jdbc.GdsJdbcConnection;
+import hu.gds.jdbc.error.ClosedResultSetException;
+import hu.gds.jdbc.error.GdsException;
+import hu.gds.jdbc.error.InvalidParameterException;
+import hu.gds.jdbc.util.GdsConstants;
 import org.msgpack.value.Value;
 import org.msgpack.value.impl.*;
 
@@ -104,7 +108,7 @@ public class DQLResultSet extends AbstractGdsResultSet {
                 MessageData5AttachmentRequestAck ack =
                         attachmentResponse.getTypeHelper().asAttachmentRequestAckMessageData5();
                 if (!AckStatus.OK.equals(ack.getGlobalStatus())) {
-                    throw new SQLException("The query response is not ok: " + ack.getGlobalStatus(), sql, -1);
+                    throw new GdsException("The query response is not ok: " + ack.getGlobalStatus());
                 }
                 attachmentResultHolder = ack.getData().getResult();
             } else {
@@ -155,7 +159,7 @@ public class DQLResultSet extends AbstractGdsResultSet {
 
     private void checkQueryResponse(MessageData11QueryRequestAck queryResponse) throws SQLException {
         if (!AckStatus.OK.equals(queryResponse.getGlobalStatus())) {
-            throw new SQLException("The query response is not ok: " + queryResponse.getGlobalStatus() + ", message: " + queryResponse.getGlobalException(), sql, -1);
+            throw new GdsException("The query response is not ok: " + queryResponse.getGlobalStatus() + ", message: " + queryResponse.getGlobalException());
         }
     }
 
@@ -188,29 +192,29 @@ public class DQLResultSet extends AbstractGdsResultSet {
         for (Map.Entry<String, Integer> entry : fieldsIndexMap.entrySet()) {
             String attachmentField = entry.getKey();
             switch (attachmentField) {
-                case "id":
+                case GdsConstants.ID_FIELD:
                     currentRow.add(new ImmutableStringValueImpl(attachmentResultHolder.getAttachmentId()));
                     break;
-                case "meta":
+                case GdsConstants.META_FIELD:
                     String meta = attachmentResultHolder.getMeta();
                     currentRow.add(meta == null ?
                             ImmutableNilValueImpl.get()
                             : new ImmutableStringValueImpl(meta));
                     break;
-                case "ownerid":
+                case GdsConstants.OWNER_ID_FIELD:
                     Value[] array = new Value[attachmentResultHolder.getOwnerIds().size()];
                     for (int i = 0; i < attachmentResultHolder.getOwnerIds().size(); i++) {
                         array[i] = new ImmutableStringValueImpl(attachmentResultHolder.getOwnerIds().get(i));
                     }
                     currentRow.add(new ImmutableArrayValueImpl(array));
                     break;
-                case "data":
+                case GdsConstants.DATA_FIELD:
                     currentRow.add(new ImmutableBinaryValueImpl(attachmentResultHolder.getAttachment()));
                     break;
-                case "@ttl":
+                case GdsConstants.TTL_FIELD:
                     currentRow.add(new ImmutableLongValueImpl(attachmentResultHolder.getTtl()));
                     break;
-                case "@to_valid":
+                case GdsConstants.TO_VALID_FIELD:
                     currentRow.add(new ImmutableLongValueImpl(attachmentResultHolder.getToValid()));
                     break;
             }
@@ -235,7 +239,7 @@ public class DQLResultSet extends AbstractGdsResultSet {
     @Override
     public boolean next() throws SQLException {
         if (isClosed) {
-            throw new SQLException("ResultSet was previously closed.");
+            throw new ClosedResultSetException(sql);
         }
         currentRow = null;
         if (attachmentDQL) {
@@ -309,6 +313,7 @@ public class DQLResultSet extends AbstractGdsResultSet {
                         } else {
                             Random random = new Random();
                             try {
+                                //noinspection BusyWait
                                 Thread.sleep(random.nextInt(MAX_RANDOM_DELAY_BETWEEN_ERROR));
                             } catch (InterruptedException ignored) {
                             }
@@ -320,7 +325,7 @@ public class DQLResultSet extends AbstractGdsResultSet {
                 doPrefetch(retryOnError, queryContextHolder);
             }
         } catch (Throwable ex) {
-            throw new SQLException("Error while execute sql", sql, ex);
+            throw new GdsException("Error while execute sql", ex);
         }
     }
 
@@ -382,7 +387,7 @@ public class DQLResultSet extends AbstractGdsResultSet {
     public int findColumn(String columnLabel) throws SQLException {
         Integer col = fieldsIndexMap.get(columnLabel);
         if (null == col) {
-            throw new SQLException("No such column " + columnLabel);
+            throw new InvalidParameterException("No such column " + columnLabel);
         }
         return col;
     }

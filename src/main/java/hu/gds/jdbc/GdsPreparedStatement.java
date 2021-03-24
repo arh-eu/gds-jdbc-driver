@@ -1,6 +1,8 @@
 package hu.gds.jdbc;
 
 import hu.arheu.gds.message.data.ConsistencyType;
+import hu.gds.jdbc.error.InvalidParameterException;
+import hu.gds.jdbc.error.TypeMismatchException;
 import hu.gds.jdbc.util.StringEscapeUtils;
 import org.jetbrains.annotations.NotNull;
 
@@ -25,14 +27,13 @@ public class GdsPreparedStatement extends GdsBaseStatement implements PreparedSt
     // "INSERT INTO MyGuests (firstname, lastname, email) VALUES (",
     // ", 'Smith', ",
     // ")"}
-    private String[] templateStrings;
+    private final String[] templateStrings;
     //A user által megadott értékek később.
-    private String[] inStrings;
+    private final String[] inStrings;
     //a megadott értékekhez az SQL típusok.
-    private Integer[] types;
+    private final Integer[] types;
     // Some performance caches
-    private StringBuffer sbuf = new StringBuffer();
-    private String table;
+    private final StringBuffer stringBuffer = new StringBuffer();
 
     private final static String TRUE = "true";
     private final static String FALSE = "false";
@@ -41,37 +42,8 @@ public class GdsPreparedStatement extends GdsBaseStatement implements PreparedSt
     GdsPreparedStatement(@NotNull GdsJdbcConnection connection, @NotNull String sql) throws SQLException {
         super(connection);
         sql = sql.trim();
-//        try {
-//            Statement statement = CCJSqlParserUtil.parse(sql);
-//            if (statement instanceof Insert) {
-//                table = ((Insert) statement).getTable().getName();
-//            } else if (statement instanceof Update) {
-//                List<Table> tables = ((Update) statement).getTables();
-//                if (tables.size() != 1) {
-//                    throw new SQLException("Update is only supported with a single table!");
-//                }
-//                table = tables.get(0).getName();
-//            } else if (statement instanceof Merge) {
-//                table = ((Merge) statement).getTable().getName();
-//            } else if (statement instanceof Select) {
-//                ((Select) statement).getSelectBody().accept(new SelectDeParser() {
-//                    @Override
-//                    public void visit(Table tableName) {
-//                        super.visit(tableName);
-//                        table = tableName.getName();
-//                    }
-//                });
-//            } else {
-//                throw new SQLException("Unsupported statement type found.");
-//            }
-//
-//        } catch (JSQLParserException ignored) {
-//            table = null;
-////            throw new SQLException(e);
-//        }
-
         List<String> v = new ArrayList<>();
-        int lastParmEnd = 0;
+        int lastParamEnd = 0;
 
         // The following two boolean switches are used to make sure we're not
         // counting "?" in either strings or metadata strings. For instance the
@@ -88,11 +60,11 @@ public class GdsPreparedStatement extends GdsBaseStatement implements PreparedSt
             if (sql.charAt(i) == '"')
                 inMetaString = !inMetaString;
             if ((sql.charAt(i) == '?') && (!(inString || inMetaString))) {
-                v.add(sql.substring(lastParmEnd, i));
-                lastParmEnd = i + 1;
+                v.add(sql.substring(lastParamEnd, i));
+                lastParamEnd = i + 1;
             }
         }
-        v.add(sql.substring(lastParmEnd));
+        v.add(sql.substring(lastParamEnd));
 
         int size = v.size();
         inStrings = new String[size - 1];
@@ -111,16 +83,16 @@ public class GdsPreparedStatement extends GdsBaseStatement implements PreparedSt
      * @throws SQLException if an error occurs
      */
     protected synchronized String compileQuery() throws SQLException {
-        sbuf.setLength(0);
+        stringBuffer.setLength(0);
         int i;
 
         for (i = 0; i < inStrings.length; ++i) {
             if (inStrings[i] == null)
-                throw new SQLException("Parameter " + (i + 1) + " is incorrect");
-            sbuf.append(templateStrings[i]).append(inStrings[i]);
+                throw new InvalidParameterException("Parameter " + (i + 1) + " is incorrect (null)!");
+            stringBuffer.append(templateStrings[i]).append(inStrings[i]);
         }
-        sbuf.append(templateStrings[inStrings.length]);
-        return sbuf.toString();
+        stringBuffer.append(templateStrings[inStrings.length]);
+        return stringBuffer.toString();
     }
 
     /**
@@ -153,12 +125,12 @@ public class GdsPreparedStatement extends GdsBaseStatement implements PreparedSt
 
     @Override
     public ResultSet executeQuery(String sql) throws SQLException {
-        throw new SQLException("Method should not be called on prepared statement");
+        throw new SQLFeatureNotSupportedException("Method should not be called on prepared statement");
     }
 
     @Override
     public boolean execute(final String sql) throws SQLException {
-        throw new SQLException("Method should not be called on prepared statement");
+        throw new SQLFeatureNotSupportedException("Method should not be called on prepared statement");
     }
 
     /**
@@ -181,7 +153,16 @@ public class GdsPreparedStatement extends GdsBaseStatement implements PreparedSt
                 setInt(parameterIndex, (Integer) value);
             else if (value instanceof Long)
                 setLong(parameterIndex, (Long) value);
-            else if (value instanceof Float)
+            else if (value instanceof BigDecimal) {
+                BigDecimal bigDecimal = (BigDecimal) value;
+                if (bigDecimal.compareTo(BigDecimal.valueOf(Long.MAX_VALUE)) <= 0 &&
+                        bigDecimal.compareTo(BigDecimal.valueOf(Long.MIN_VALUE)) >= 0) {
+                    setLong(parameterIndex, bigDecimal.longValue());
+                } else {
+                    throw new TypeMismatchException("BigDecimal number is out of range for long values." +
+                            "(" + value.toString() + ")");
+                }
+            } else if (value instanceof Float)
                 setFloat(parameterIndex, (Float) value);
             else if (value instanceof Double)
                 setDouble(parameterIndex, (Double) value);
@@ -202,14 +183,14 @@ public class GdsPreparedStatement extends GdsBaseStatement implements PreparedSt
             else if (value instanceof java.net.URL)
                 setURL(parameterIndex, (java.net.URL) value);
             else
-                throw new SQLException("Objects of type " + value.getClass()
+                throw new TypeMismatchException("Objects of type " + value.getClass()
                         + " are not supported.");
         }
     }
 
     @Override
     public void addBatch(String sql) throws SQLException {
-        throw new SQLException("Method should not be called on prepared statement");
+        throw new SQLFeatureNotSupportedException("Method should not be called on prepared statement");
     }
 
     @Override
@@ -229,37 +210,37 @@ public class GdsPreparedStatement extends GdsBaseStatement implements PreparedSt
 
     @Override
     public int executeUpdate(String sql) throws SQLException {
-        throw new SQLException("Method should not be called on prepared statement");
+        throw new SQLFeatureNotSupportedException("Method should not be called on prepared statement");
     }
 
     @Override
     public int executeUpdate(String sql, int autoGeneratedKeys) throws SQLException {
-        throw new SQLException("Method should not be called on prepared statement");
+        throw new SQLFeatureNotSupportedException("Method should not be called on prepared statement");
     }
 
     @Override
     public int executeUpdate(String sql, int[] columnIndexes) throws SQLException {
-        throw new SQLException("Method should not be called on prepared statement");
+        throw new SQLFeatureNotSupportedException("Method should not be called on prepared statement");
     }
 
     @Override
     public int executeUpdate(String sql, String[] columnNames) throws SQLException {
-        throw new SQLException("Method should not be called on prepared statement");
+        throw new SQLFeatureNotSupportedException("Method should not be called on prepared statement");
     }
 
     @Override
     public boolean execute(String sql, int autoGeneratedKeys) throws SQLException {
-        throw new SQLException("Method should not be called on prepared statement");
+        throw new SQLFeatureNotSupportedException("Method should not be called on prepared statement");
     }
 
     @Override
     public boolean execute(String sql, int[] columnIndexes) throws SQLException {
-        throw new SQLException("Method should not be called on prepared statement");
+        throw new SQLFeatureNotSupportedException("Method should not be called on prepared statement");
     }
 
     @Override
     public boolean execute(String sql, String[] columnNames) throws SQLException {
-        throw new SQLException("Method should not be called on prepared statement");
+        throw new SQLFeatureNotSupportedException("Method should not be called on prepared statement");
     }
 
     /**
@@ -273,7 +254,7 @@ public class GdsPreparedStatement extends GdsBaseStatement implements PreparedSt
     private void set(int paramIndex, String s, int sqlType) throws SQLException {
         checkClosed(false);
         if (paramIndex < 1 || paramIndex > inStrings.length)
-            throw new SQLException("Parameter index out of range.");
+            throw new InvalidParameterException("Parameter index out of range.");
         inStrings[paramIndex - 1] = s;
         types[paramIndex - 1] = sqlType;
     }
@@ -333,11 +314,6 @@ public class GdsPreparedStatement extends GdsBaseStatement implements PreparedSt
         if (null == x) {
             setNull(parameterIndex, Types.NUMERIC);
         } else {
-//            try{
-//                x.longValueExact();
-//            }catch (ArithmeticException ae){
-//                throw new SQLException(ae);
-//            }
             set(parameterIndex, x.toString(), Types.NUMERIC);
         }
     }
@@ -471,7 +447,7 @@ public class GdsPreparedStatement extends GdsBaseStatement implements PreparedSt
         } else {
             char[] data = new char[length];
             try {
-                int read = 0;
+                int read;
                 int offset = 0;
                 do {
                     read = reader.read(data, offset, length - offset);
@@ -540,7 +516,7 @@ public class GdsPreparedStatement extends GdsBaseStatement implements PreparedSt
                         else
                             joiner.add("'").add(new Timestamp(((Timestamp) value).getTime()).toString()).add("'");
                     else
-                        throw new SQLException("Objects of type " + value.getClass()
+                        throw new TypeMismatchException("Objects of type " + value.getClass()
                                 + " are not supported.");
                 }
             }
@@ -716,7 +692,7 @@ public class GdsPreparedStatement extends GdsBaseStatement implements PreparedSt
                     setObject(parameterIndex, x);
                     break;
                 default:
-                    throw new SQLException("Unsupported type value: " + targetSqlType);
+                    throw new TypeMismatchException("Unsupported type value: " + targetSqlType);
             }
         }
     }

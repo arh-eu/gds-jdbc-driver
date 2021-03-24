@@ -10,8 +10,5 @@ public enum QueryScanConsistency {
         public String toString() {
             return "request_plus";
         }
-    };
-
-    private QueryScanConsistency() {
     }
 }

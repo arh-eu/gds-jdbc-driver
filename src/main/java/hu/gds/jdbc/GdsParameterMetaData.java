@@ -1,5 +1,7 @@
 package hu.gds.jdbc;
 
+import hu.gds.jdbc.error.InvalidParameterException;
+
 import java.sql.ParameterMetaData;
 import java.sql.SQLException;
 import java.sql.Types;
@@ -21,35 +23,35 @@ public class GdsParameterMetaData implements ParameterMetaData {
     @Override
     public int isNullable(int param) throws SQLException {
         if (param < 1 || param > inStrings.length)
-            throw new SQLException("Parameter index out of range.");
+            throw new InvalidParameterException("Parameter index out of range.");
         return parameterNullableUnknown;
     }
 
     @Override
     public boolean isSigned(int param) throws SQLException {
         if (param < 1 || param > inStrings.length)
-            throw new SQLException("Parameter index out of range.");
+            throw new InvalidParameterException("Parameter index out of range.");
         return false;
     }
 
     @Override
     public int getPrecision(int param) throws SQLException {
         if (param < 1 || param > inStrings.length)
-            throw new SQLException("Parameter index out of range.");
+            throw new InvalidParameterException("Parameter index out of range.");
         return 0;
     }
 
     @Override
     public int getScale(int param) throws SQLException {
         if (param < 1 || param > inStrings.length)
-            throw new SQLException("Parameter index out of range.");
+            throw new InvalidParameterException("Parameter index out of range.");
         return 0;
     }
 
     @Override
     public int getParameterType(int param) throws SQLException {
         if (param < 1 || param > inStrings.length)
-            throw new SQLException("Parameter index out of range.");
+            throw new InvalidParameterException("Parameter index out of range.");
         if (null == types[param-1]) {
             return Types.NULL;
         } else {

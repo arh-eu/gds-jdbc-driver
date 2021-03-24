@@ -11,15 +11,17 @@ import java.util.TreeMap;
 
 public class GdsTableType {
     private final String name;
+    private final boolean isSystemTableType;
     private final TreeMap<String, GdsTable> tables;
 
-    public GdsTableType(String name) {
-        this(name, new TreeMap<>());
+    public GdsTableType(String name, boolean isSystemTableType) {
+        this.name = name;
+        this.isSystemTableType = isSystemTableType;
+        this.tables = new TreeMap<>();
     }
 
-    public GdsTableType(String name, TreeMap<String, GdsTable> tables) {
-        this.name = name;
-        this.tables = tables;
+    public boolean isSystemTableType() {
+        return isSystemTableType;
     }
 
     public String getName() {

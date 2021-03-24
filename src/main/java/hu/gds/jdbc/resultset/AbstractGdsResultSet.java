@@ -3,9 +3,9 @@ package hu.gds.jdbc.resultset;
 import hu.gds.jdbc.GdsBaseStatement;
 import hu.gds.jdbc.GdsJdbcConnection;
 import hu.gds.jdbc.GdsStatement;
-import hu.gds.jdbc.error.InvalidArgumentException;
-import hu.gds.jdbc.error.SQLFeatureNotImplemented;
+import hu.gds.jdbc.error.*;
 import hu.gds.jdbc.types.JavaTypes;
+import hu.gds.jdbc.util.GdsConstants;
 import hu.gds.jdbc.util.ObjectToValueConverter;
 import org.msgpack.value.NumberValue;
 import org.msgpack.value.Value;
@@ -14,6 +14,7 @@ import java.io.*;
 import java.math.BigDecimal;
 import java.net.MalformedURLException;
 import java.net.URL;
+import java.nio.charset.StandardCharsets;
 import java.sql.Date;
 import java.sql.*;
 import java.util.*;
@@ -28,7 +29,7 @@ public abstract class AbstractGdsResultSet implements ResultSet {
 
     protected boolean isClosed = false;
     protected boolean wasNull = false;
-    protected Map<String, Integer> fieldsIndexMap = new LinkedHashMap<>();
+    protected final Map<String, Integer> fieldsIndexMap = new LinkedHashMap<>();
 
     final static long QUERY_TIMEOUT_DEFAULT = 10_000L;
     final static int RETRY_ON_ERROR_DEFAULT = 3;
@@ -41,10 +42,7 @@ public abstract class AbstractGdsResultSet implements ResultSet {
     protected String queryId;
     protected int rowNumber = 0;
 
-    private String sql;
-    private static final String ATTACHMENT_COLUMN_NAME = "data";
-    private static final String ID_COLUMN_NAME = "id";
-    private static final String ATTACHMENT_TABLE_SUFFIX = "-@attachment\"";
+    protected final String sql;
 
     private Closeable activeStream;
 
@@ -101,7 +99,6 @@ public abstract class AbstractGdsResultSet implements ResultSet {
         if (activeStream != null) {
             try {
                 activeStream.close();
-                System.out.println("closed");
             } catch (IOException e) {
                 throw new SQLException(e);
             } finally {
@@ -121,24 +118,24 @@ public abstract class AbstractGdsResultSet implements ResultSet {
             try {
                 return Long.parseLong(value);
             } catch (NumberFormatException nfe) {
-                throw new InvalidArgumentException("The value of the '" + identifier + "' parameter is invalid!", nfe, null);
+                throw new IllegalArgumentException("The value of the '" + identifier + "' parameter is invalid!", nfe);
             }
         }
     }
 
-    void setupTimeout(String value) throws InvalidArgumentException {
+    void setupTimeout(String value) {
         this.timeout = longValueFromString(value, "timeout", QUERY_TIMEOUT_DEFAULT);
     }
 
     private void checkClosed() throws SQLException {
         if (isClosed) {
-            throw new SQLException("ResultSet was previously closed.");
+            throw new ClosedResultSetException(sql);
         }
     }
 
     private void checkCurrentRow() throws SQLException {
         if (currentRow == null) {
-            throw new SQLException("Exhausted ResultSet.");
+            throw new ExhaustedResultSetException(sql);
         }
     }
 
@@ -156,10 +153,7 @@ public abstract class AbstractGdsResultSet implements ResultSet {
     }
 
     private boolean isNull(Value value) {
-        if (value == null || value.isNilValue()) {
-            return true;
-        }
-        return false;
+        return value == null || value.isNilValue();
     }
 
     private Value getColumnValue(int columnIndex) throws SQLException {
@@ -181,7 +175,7 @@ public abstract class AbstractGdsResultSet implements ResultSet {
                 return entry.getKey();
             }
         }
-        throw new SQLException("The column index is out of range: " + columnIndex + ", number of columns: " + currentRow.size() + ").", sql, -1);
+        throw new ColumnIndexException("The column index is out of range: " + columnIndex + ", number of columns: " + currentRow.size() + ").");
     }
 
     private String getMimeType(int columnIndex) throws SQLException {
@@ -217,7 +211,7 @@ public abstract class AbstractGdsResultSet implements ResultSet {
             throw new SQLException("Get bytes only allow by attachment response! The request is a standard query and not an attachment query.", sql, -1);
         }
         String columnLabel = getColumnLabel(columnIndex);
-        if (!columnLabel.equals(ATTACHMENT_COLUMN_NAME)) {
+        if (!columnLabel.equals(GdsConstants.DATA_FIELD)) {
             throw new SQLException("Only on data field allowed to get the bytes, but found " + columnLabel + " field", sql, -1);
         }
     }
@@ -235,7 +229,7 @@ public abstract class AbstractGdsResultSet implements ResultSet {
     }
 
     /**
-     * @param columnIndex
+     * @param columnIndex the index of the column
      * @return the <code>String</code> value or the <code>String</code> value returned by the <code>toString()</code> for other types;
      * <code>null</code> if the value is <code>null</code>
      * @throws SQLException if the result set is closed or if the column index is out of range
@@ -246,7 +240,7 @@ public abstract class AbstractGdsResultSet implements ResultSet {
     }
 
     /**
-     * @param columnIndex
+     * @param columnIndex the index of the column
      * @return if the value is a numeric fixed point number, the returned value will be <code>true</code>
      * if it's value is <code>1</code> and false if it's value is <code>0</code>;
      * if the value is a string, the returned value will be <code>true</code> if it's value is <code>"1"</code>
@@ -261,7 +255,7 @@ public abstract class AbstractGdsResultSet implements ResultSet {
     }
 
     /**
-     * @param columnIndex
+     * @param columnIndex the index of the column
      * @return the <code>byte</code> representation of the value if it fits in the byte range corresponding to Java;
      * if the value has a floating point type, a conversion according to Java will occur;
      * if the value is <code>null</code>, the value returned is <code>0</code>
@@ -274,7 +268,7 @@ public abstract class AbstractGdsResultSet implements ResultSet {
     }
 
     /**
-     * @param columnIndex
+     * @param columnIndex the index of the column
      * @return the <code>short</code> representation of the value if it fits in the byte range corresponding to Java;
      * if the value has a floating point type, a conversion according to Java will occur;
      * if the value is <code>null</code>, the value returned is <code>0</code>
@@ -287,7 +281,7 @@ public abstract class AbstractGdsResultSet implements ResultSet {
     }
 
     /**
-     * @param columnIndex
+     * @param columnIndex the index of the column
      * @return the <code>int</code> representation of the value if it fits in the byte range corresponding to Java;
      * if the value has a floating point type, a conversion according to Java will occur;
      * if the value is <code>null</code>, the value returned is <code>0</code>
@@ -300,7 +294,7 @@ public abstract class AbstractGdsResultSet implements ResultSet {
     }
 
     /**
-     * @param columnIndex
+     * @param columnIndex the index of the column
      * @return the <code>long</code> representation of the value if it fits in the byte range corresponding to Java;
      * if the value has a floating point type, a conversion according to Java will occur;
      * if the value is <code>null</code>, the value returned is <code>0</code>
@@ -313,7 +307,7 @@ public abstract class AbstractGdsResultSet implements ResultSet {
     }
 
     /**
-     * @param columnIndex
+     * @param columnIndex the index of the column
      * @return the <code>float</code> representation of the value if it fits in the byte range corresponding to Java;
      * if the value is <code>null</code>, the value returned is <code>0</code>
      * @throws SQLException if the value is not fits in the byte range corresponding to Java;
@@ -325,7 +319,7 @@ public abstract class AbstractGdsResultSet implements ResultSet {
     }
 
     /**
-     * @param columnIndex
+     * @param columnIndex the index of the column
      * @return the <code>double</code> representation of the value if it fits in the byte range corresponding to Java;
      * if the value is <code>null</code>, the value returned is <code>0</code>
      * @throws SQLException if the value is not fits in the byte range corresponding to Java;
@@ -343,7 +337,7 @@ public abstract class AbstractGdsResultSet implements ResultSet {
     }
 
     /**
-     * @param columnIndex
+     * @param columnIndex the index of the column
      * @return the raw value if this query is an attachment query and if the field is an attachment field
      * (the name of the column is 'data'); <code>null</code> if the value is <code>null</code>
      * @throws SQLException if it is not an attachment query or if the field is not an attachment field;
@@ -360,7 +354,7 @@ public abstract class AbstractGdsResultSet implements ResultSet {
     }
 
     /**
-     * @param columnIndex
+     * @param columnIndex the index of the column
      * @return the <code>Date</code> object from the timestamp value if the value is a numeric fixed point number
      * and if the mime type of the field is 'datetime'; UTC time-zone will be used;
      * <code>null</code> if the value is <code>null</code>
@@ -377,7 +371,7 @@ public abstract class AbstractGdsResultSet implements ResultSet {
     }
 
     /**
-     * @param columnIndex
+     * @param columnIndex the index of the column
      * @return the <code>Time</code> object from the timestamp value if the value is a numeric fixed point number
      * and if the mime type of the field is 'datetime'; UTC time-zone will be used;
      * <code>null</code> if the value is <code>null</code>
@@ -394,7 +388,7 @@ public abstract class AbstractGdsResultSet implements ResultSet {
     }
 
     /**
-     * @param columnIndex
+     * @param columnIndex the index of the column
      * @return the <code>Timestamp</code> object from the timestamp value if the value is a numeric fixed point number
      * and if the mime type of the field is 'datetime'; UTC time-zone will be used;
      * <code>null</code> if the value is <code>null</code>
@@ -407,10 +401,10 @@ public abstract class AbstractGdsResultSet implements ResultSet {
     }
 
     /**
-     * @param columnIndex
+     * @param columnIndex the index of the column
      * @return the ASCII encoded <code>InputStream</code> if the value is <code>String</code;
      * <code>null</code> if the value is <code>null</code>
-     * @throws SQLException if the value is not a <code>String</code> or if any error occurs during the encoding;
+     * @throws SQLException if any error occurs during the encoding;
      *                      if the result set is closed or if the column index is out of range
      */
     @Override
@@ -419,20 +413,16 @@ public abstract class AbstractGdsResultSet implements ResultSet {
         if (value == null) {
             return null;
         }
-        try {
-            ByteArrayInputStream stream = new ByteArrayInputStream(value.getBytes("ASCII"));
-            setActiveStream(stream);
-            return stream;
-        } catch (UnsupportedEncodingException exception) {
-            throw new SQLException(exception);
-        }
+        ByteArrayInputStream stream = new ByteArrayInputStream(value.getBytes(StandardCharsets.US_ASCII));
+        setActiveStream(stream);
+        return stream;
     }
 
     /**
-     * @param columnIndex
+     * @param columnIndex the index of the column
      * @return the UTF-8 encoded <code>InputStream</code> if the value is <code>String</code;
      * <code>null</code> if the value is <code>null</code>
-     * @throws SQLException if the value is not a <code>String</code> or if any error occurs during the encoding;
+     * @throws SQLException if any error occurs during the encoding;
      *                      if the result set is closed or if the column index is out of range
      */
     @Deprecated
@@ -442,17 +432,13 @@ public abstract class AbstractGdsResultSet implements ResultSet {
         if (value == null) {
             return null;
         }
-        try {
-            ByteArrayInputStream stream = new ByteArrayInputStream(value.getBytes("UTF-8"));
-            setActiveStream(stream);
-            return stream;
-        } catch (UnsupportedEncodingException exception) {
-            throw new SQLException(exception);
-        }
+        ByteArrayInputStream stream = new ByteArrayInputStream(value.getBytes(StandardCharsets.UTF_8));
+        setActiveStream(stream);
+        return stream;
     }
 
     /**
-     * @param columnIndex
+     * @param columnIndex the index of the column
      * @return the binary <code>InputStream</code> if this query is an attachment query and if the field is an attachment field
      * the name of the column is 'data')
      * <code>null</code> if the value is <code>null</code>
@@ -471,7 +457,7 @@ public abstract class AbstractGdsResultSet implements ResultSet {
     }
 
     /**
-     * @param columnIndex
+     * @param columnIndex the index of the column
      * @return the value as <code>Array</code> type; possible array element types are
      * <code>String</code>, <code>Boolean</code> and the numeric value types;
      * <code>null</code> if the value is <code>null</code>
@@ -484,7 +470,7 @@ public abstract class AbstractGdsResultSet implements ResultSet {
     }
 
     /**
-     * @param columnLabel
+     * @param columnLabel the name of the column
      * @return the <code>String</code> value or the <code>String</code> value returned by the <code>toString()</code> for other types;
      * <code>null</code> if the value is <code>null</code>
      * @throws SQLException if the result set is closed or if the column name is not found
@@ -495,7 +481,7 @@ public abstract class AbstractGdsResultSet implements ResultSet {
     }
 
     /**
-     * @param columnLabel
+     * @param columnLabel the name of the column
      * @return if the value is a numeric fixed point number, the returned value will be <code>true</code>
      * if it's value is <code>1</code> and false if it's value is <code>0</code>;
      * if the value is a string, the returned value will be <code>true</code> if it's value is <code>"1"</code>
@@ -510,7 +496,7 @@ public abstract class AbstractGdsResultSet implements ResultSet {
     }
 
     /**
-     * @param columnLabel
+     * @param columnLabel the name of the column
      * @return the <code>byte</code> representation of the value if it fits in the byte range corresponding to Java;
      * if the value has a floating point type, a conversion according to Java will occur;
      * if the value is <code>null</code>, the value returned is <code>0</code>
@@ -523,7 +509,7 @@ public abstract class AbstractGdsResultSet implements ResultSet {
     }
 
     /**
-     * @param columnLabel
+     * @param columnLabel the name of the column
      * @return the <code>short</code> representation of the value if it fits in the byte range corresponding to Java;
      * if the value has a floating point type, a conversion according to Java will occur;
      * if the value is <code>null</code>, the value returned is <code>0</code>
@@ -536,7 +522,7 @@ public abstract class AbstractGdsResultSet implements ResultSet {
     }
 
     /**
-     * @param columnLabel
+     * @param columnLabel the name of the column
      * @return the <code>int</code> representation of the value if it fits in the byte range corresponding to Java;
      * if the value has a floating point type, a conversion according to Java will occur;
      * if the value is <code>null</code>, the value returned is <code>0</code>
@@ -549,7 +535,7 @@ public abstract class AbstractGdsResultSet implements ResultSet {
     }
 
     /**
-     * @param columnLabel
+     * @param columnLabel the name of the column
      * @return the <code>long</code> representation of the value if it fits in the byte range corresponding to Java;
      * if the value has a floating point type, a conversion according to Java will occur;
      * if the value is <code>null</code>, the value returned is <code>0</code>
@@ -562,7 +548,7 @@ public abstract class AbstractGdsResultSet implements ResultSet {
     }
 
     /**
-     * @param columnLabel
+     * @param columnLabel the name of the column
      * @return the <code>float</code> representation of the value if it fits in the byte range corresponding to Java;
      * if the value is <code>null</code>, the value returned is <code>0</code>
      * @throws SQLException if the value is not fits in the byte range corresponding to Java;
@@ -574,7 +560,7 @@ public abstract class AbstractGdsResultSet implements ResultSet {
     }
 
     /**
-     * @param columnLabel
+     * @param columnLabel the name of the column
      * @return the <code>double</code> representation of the value if it fits in the byte range corresponding to Java;
      * if the value is <code>null</code>, the value returned is <code>0</code>
      * @throws SQLException if the value is not fits in the byte range corresponding to Java;
@@ -592,7 +578,7 @@ public abstract class AbstractGdsResultSet implements ResultSet {
     }
 
     /**
-     * @param columnLabel
+     * @param columnLabel the name of the column
      * @return the raw value if this query is an attachment query and if the field is an attachment field
      * (the name of the column is 'data'); <code>null</code> if the value is <code>null</code>
      * @throws SQLException if it is not an attachment query or if the field is not an attachment field;
@@ -604,7 +590,7 @@ public abstract class AbstractGdsResultSet implements ResultSet {
     }
 
     /**
-     * @param columnLabel
+     * @param columnLabel the name of the column
      * @return the <code>Date</code> object from the timestamp value if the value is a numeric fixed point number
      * and if the mime type of the field is 'datetime'; UTC time-zone will be used;
      * <code>null</code> if the value is <code>null</code>
@@ -617,7 +603,7 @@ public abstract class AbstractGdsResultSet implements ResultSet {
     }
 
     /**
-     * @param columnLabel
+     * @param columnLabel the name of the column
      * @return the <code>Time</code> object from the timestamp value if the value is a numeric fixed point number
      * and if the mime type of the field is 'datetime'; UTC time-zone will be used;
      * <code>null</code> if the value is <code>null</code>
@@ -630,7 +616,7 @@ public abstract class AbstractGdsResultSet implements ResultSet {
     }
 
     /**
-     * @param columnLabel
+     * @param columnLabel the name of the column
      * @return the <code>Timestamp</code> object from the timestamp value if the value is a numeric fixed point number
      * and if the mime type of the field is 'datetime'; UTC time-zone will be used;
      * <code>null</code> if the value is <code>null</code>
@@ -643,10 +629,10 @@ public abstract class AbstractGdsResultSet implements ResultSet {
     }
 
     /**
-     * @param columnLabel
+     * @param columnLabel the name of the column
      * @return the ASCII encoded <code>InputStream</code> if the value is <code>String</code;
      * <code>null</code> if the value is <code>null</code>
-     * @throws SQLException if the value is not a <code>String</code> or if any error occurs during the encoding;
+     * @throws SQLException if any error occurs during the encoding;
      *                      if the result set is closed or if the column name is not found
      */
     @Override
@@ -655,10 +641,10 @@ public abstract class AbstractGdsResultSet implements ResultSet {
     }
 
     /**
-     * @param columnLabel
+     * @param columnLabel the name of the column
      * @return the UTF-8 encoded <code>InputStream</code> if the value is <code>String</code;
      * <code>null</code> if the value is <code>null</code>
-     * @throws SQLException if the value is not a <code>String</code> or if any error occurs during the encoding;
+     * @throws SQLException if any error occurs during the encoding;
      *                      if the result set is closed or if the column name is not found
      */
     @Deprecated
@@ -668,7 +654,7 @@ public abstract class AbstractGdsResultSet implements ResultSet {
     }
 
     /**
-     * @param columnLabel
+     * @param columnLabel the name of the column
      * @return the binary <code>InputStream</code> if this query is an attachment query and if the field is an attachment field
      * the name of the column is 'data')
      * <code>null</code> if the value is <code>null</code>
@@ -726,7 +712,7 @@ public abstract class AbstractGdsResultSet implements ResultSet {
                 }
             }
         }
-        throw new SQLException("The column name " + columnLabel + " was not found in this ResultSet.", sql);
+        throw new InvalidParameterException("The column name " + columnLabel + " was not found in this ResultSet.");
     }
 
     @Override
@@ -762,7 +748,7 @@ public abstract class AbstractGdsResultSet implements ResultSet {
         if (this.isDql() && this.asDqlResultSet().attachmentDQL) {
             return index == 0;
         } else {
-            if (rows == null || (rows != null && rows.isEmpty())) {
+            if (rows == null || rows.isEmpty()) {
                 return false;
             } else {
                 return index <= 0;
@@ -784,7 +770,7 @@ public abstract class AbstractGdsResultSet implements ResultSet {
         if (this.isDql() && this.asDqlResultSet().attachmentDQL) {
             return index == 1;
         } else {
-            if (rows == null || (rows != null && rows.isEmpty())) {
+            if (rows == null || rows.isEmpty()) {
                 return false;
             } else {
                 return index == 1;
@@ -801,7 +787,7 @@ public abstract class AbstractGdsResultSet implements ResultSet {
         if (this.isDql() && this.asDqlResultSet().attachmentDQL) {
             return index == 1;
         } else {
-            if (rows == null || (rows != null && rows.isEmpty())) {
+            if (rows == null || rows.isEmpty()) {
                 return false;
             } else {
                 return index == rows.size();
@@ -965,7 +951,7 @@ public abstract class AbstractGdsResultSet implements ResultSet {
             updateNull(columnIndex);
         } else {
             try {
-                updateCharacterStream(columnIndex, new InputStreamReader(x, "ASCII"), length);
+                updateCharacterStream(columnIndex, new InputStreamReader(x, StandardCharsets.US_ASCII), length);
             } catch (Throwable throwable) {
                 throw new SQLException(throwable);
             }
@@ -1119,14 +1105,14 @@ public abstract class AbstractGdsResultSet implements ResultSet {
     }
 
     private void checkUpdateValuesMap(boolean checkId) throws SQLException {
-        if (updateValues == null && (updateValues != null && updateValues.isEmpty())) {
+        if (updateValues == null || updateValues.isEmpty()) {
             throw new SQLException("There is no value that can be inserted/updated.");
         }
         if (checkId) {
-            if (!updateValues.containsKey(ID_COLUMN_NAME)) {
-                throw new SQLException("The field " + ID_COLUMN_NAME + " cannot found. The " + ID_COLUMN_NAME + " field is required.");
-            } else if (updateValues.get(ID_COLUMN_NAME) == null) {
-                throw new SQLException("The field " + ID_COLUMN_NAME + " cannot be null.");
+            if (!updateValues.containsKey(GdsConstants.ID_FIELD)) {
+                throw new InvalidParameterException("The field " + GdsConstants.ID_FIELD + " cannot found. The " + GdsConstants.ID_FIELD + " field is required.");
+            } else if (updateValues.get(GdsConstants.ID_FIELD) == null) {
+                throw new InvalidParameterException("The field " + GdsConstants.ID_FIELD + " cannot be null.");
             }
         }
     }
@@ -1137,11 +1123,10 @@ public abstract class AbstractGdsResultSet implements ResultSet {
         for (String columnName : columnNamesList) {
             columnNames.add("\"" + columnName + "\"");
         }
-        String selectSql = "SELECT " + columnNames.toString() + " FROM " + "\"" + getTableName() + "\"" + " WHERE " + ID_COLUMN_NAME + "='" + id + "'";
+        String selectSql = "SELECT " + columnNames.toString() + " FROM " + "\"" + getTableName() + "\"" + " WHERE " + GdsConstants.ID_FIELD + "='" + id + "'";
         GdsStatement selectStatement = (GdsStatement) statement.getConnection().createStatement();
         selectStatement.executeInnerQuery(selectSql);
-        DQLResultSet selectResultSet = (DQLResultSet) selectStatement.getResultSet();
-        return selectResultSet;
+        return (DQLResultSet) selectStatement.getResultSet();
     }
 
     private void addToDqlResultSet(String id) throws SQLException {
@@ -1163,7 +1148,7 @@ public abstract class AbstractGdsResultSet implements ResultSet {
             DMLResultSet resultSet = (DMLResultSet) statement.getResultSet();
             addToDmlResultSet(resultSet);
         } else if (isDql()) {
-            addToDqlResultSet((String) updateValues.get(ID_COLUMN_NAME));
+            addToDqlResultSet((String) updateValues.get(GdsConstants.ID_FIELD));
         } else {
             throw new SQLException("The ResultSet is not a dml and not a dql ResultSet.");
         }
@@ -1189,7 +1174,7 @@ public abstract class AbstractGdsResultSet implements ResultSet {
     @Override
     public void insertRow() throws SQLException {
         checkUpdatable();
-        if (null != getTableName() && getTableName().endsWith(ATTACHMENT_TABLE_SUFFIX)) {
+        if (null != getTableName() && getTableName().endsWith(GdsConstants.ATTACHMENT_TABLE_SUFFIX)) {
             throw new SQLException("Insert to an attachment table is not allowed.", sql, -1);
         }
         if (!onInsertRow) {
@@ -1232,7 +1217,7 @@ public abstract class AbstractGdsResultSet implements ResultSet {
                 for (Map.Entry<String, Object> entry : updateValues.entrySet()) {
                     String key = entry.getKey();
                     Object value = entry.getValue();
-                    if (key != ID_COLUMN_NAME) {
+                    if (!key.equals(GdsConstants.ID_FIELD)) {
                         String temp = key + "=";
                         if (value == null) {
                             temp += "null";
@@ -1247,7 +1232,7 @@ public abstract class AbstractGdsResultSet implements ResultSet {
                     }
                 }
                 updateSql += updateSetClause.toString();
-                updateSql += " WHERE " + ID_COLUMN_NAME + "=" + "'" + this.getString("id") + "'";
+                updateSql += " WHERE " + GdsConstants.ID_FIELD + "=" + "'" + this.getString(GdsConstants.ID_FIELD) + "'";
                 Statement updateStatement = statement.getConnection().createStatement();
                 updateStatement.execute(updateSql);
                 for (Map.Entry<String, Object> entry : updateValues.entrySet()) {
@@ -1272,7 +1257,7 @@ public abstract class AbstractGdsResultSet implements ResultSet {
             throw new SQLException("Cannot call updateRow() when on the insert row.");
         }
         if (!this.isBeforeFirst()) {
-            String id = getString(ID_COLUMN_NAME);
+            String id = getString(GdsConstants.ID_FIELD);
             if (id != null) {
                 DQLResultSet resultSet = getDqlResultSet(id);
                 if (resultSet.next()) {
@@ -1299,19 +1284,19 @@ public abstract class AbstractGdsResultSet implements ResultSet {
     }
 
     @Override
-    public synchronized void moveToInsertRow() throws SQLException {
+    public synchronized void moveToInsertRow() {
         onInsertRow = true;
         updateInProcess = false;
     }
 
     @Override
-    public synchronized void moveToCurrentRow() throws SQLException {
+    public synchronized void moveToCurrentRow() {
         onInsertRow = false;
         updateInProcess = false;
     }
 
     @Override
-    public Statement getStatement() throws SQLException {
+    public Statement getStatement() {
         return statement;
     }
 
@@ -1693,7 +1678,7 @@ public abstract class AbstractGdsResultSet implements ResultSet {
         try {
             return type.cast(getObject(columnIndex));
         } catch (Exception ex) {
-            throw new SQLException(ex);
+            throw new TypeMismatchException(ex);
         }
     }
 
@@ -1702,7 +1687,7 @@ public abstract class AbstractGdsResultSet implements ResultSet {
         try {
             return type.cast(getObject(columnLabel));
         } catch (Exception ex) {
-            throw new SQLException(ex);
+            throw new TypeMismatchException(ex);
         }
     }
 

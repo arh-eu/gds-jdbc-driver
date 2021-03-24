@@ -8,6 +8,8 @@ public class StringEscapeUtils {
     private static final CharSequence quoteReplace = "''";
     private static final CharSequence backslash = "\\";
     private static final CharSequence backslashReplace = "\\\\";
+    private static final CharSequence backslashapostrophe = "";
+    private static final CharSequence backslashapostropheReplace = "\"";
 
     public StringEscapeUtils() {
     }
@@ -19,6 +21,15 @@ public class StringEscapeUtils {
     public static String unescape(String value) {
         return null == value ? null : value.replace(quoteReplace, quote).replace(backslashReplace, backslash);
     }
+
+    public static String escapeAtSymbol(String value) {
+        return null == value ? null : backslashapostropheReplace + value + backslashapostrophe;
+    }
+
+    public static String unescapeAtSymbol(String value) {
+        return null == value ? null : value.replace(backslashapostropheReplace, backslashapostrophe);
+    }
+
 
     public static boolean parserShouldFail(String value) {
         Matcher matcher = Pattern.compile("(\\\\)(\\1*)").matcher(value);

@@ -72,7 +72,7 @@ public class GdsJdbcConnection implements Connection {
         isClosed = true;
     }
 
-    public boolean isClosed() throws SQLException {
+    public boolean isClosed() {
         return isClosed;
     }
 
@@ -90,8 +90,7 @@ public class GdsJdbcConnection implements Connection {
         return isReadOnly;
     }
 
-    public void setCatalog(String catalog) throws SQLException {
-
+    public void setCatalog(String catalog) {
     }
 
     public String getCatalog() throws SQLException {
@@ -249,11 +248,11 @@ public class GdsJdbcConnection implements Connection {
         }
     }
 
-    public void setSchema(String schema) throws SQLException {
+    public void setSchema(String schema) {
         setCatalog(schema);
     }
 
-    public String getSchema() throws SQLException {
+    public String getSchema() {
         return DEFAULT_SCHEMA;
     }
 

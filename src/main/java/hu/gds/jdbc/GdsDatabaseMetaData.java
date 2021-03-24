@@ -2,6 +2,7 @@ package hu.gds.jdbc;
 
 import hu.arheu.gds.message.data.*;
 import hu.arheu.gds.message.data.impl.*;
+import hu.gds.jdbc.error.TypeMismatchException;
 import hu.gds.jdbc.metainfo.ColumnInfo;
 import hu.gds.jdbc.metainfo.GdsTable;
 import hu.gds.jdbc.metainfo.GdsTableType;
@@ -850,6 +851,11 @@ public class GdsDatabaseMetaData implements DatabaseMetaData {
     private final static Set<String> GDS_SYSTEM_TABLE_TYPES = new HashSet<>();
     private final static String SELECT_FROM_GDS_CONFIG_STORE_TABLES = "SELECT * FROM \"@gds.config.store.tables\"";
 
+    /**
+     * Every table in the GDS visible by the current user.
+     */
+    private final TreeMap<String, GdsTable> availableTables = new TreeMap<>();
+
     static {
         createConfigSystemTables();
         createListSystemTables();
@@ -858,10 +864,11 @@ public class GdsDatabaseMetaData implements DatabaseMetaData {
     }
 
     private static void createConfigSystemTables() {
-        GdsTableType configTables = new GdsTableType(CONFIGURATION_TYPE);
+        GdsTableType configTables = new GdsTableType(CONFIGURATION_TYPE, true);
         createPermissionConfigTable(configTables);
         createPermissionConfigValidationTable(configTables);
-        createStoreConfigTable(configTables);
+        createStoreConfigQueryTable(configTables);
+        createStoreConfigTablesTable(configTables);
         createCryptoConfigQueryTable(configTables);
         createCryptoConfigGetTable(configTables);
         createAtsConfigTable(configTables);
@@ -871,7 +878,7 @@ public class GdsDatabaseMetaData implements DatabaseMetaData {
     }
 
     private static void createListSystemTables() {
-        GdsTableType listTables = new GdsTableType(LIST_TYPE);
+        GdsTableType listTables = new GdsTableType(LIST_TYPE, true);
         createListQueryTable(listTables);
         createListQueryDetailsTable(listTables);
         GDS_ALL_TABLE_TYPES.put(LIST_TYPE, listTables);
@@ -879,36 +886,36 @@ public class GdsDatabaseMetaData implements DatabaseMetaData {
     }
 
     private static void createTransformationSystemTables() {
-        GdsTableType transformationTables = new GdsTableType(TRANSFORMATION_TYPE);
+        GdsTableType transformationTables = new GdsTableType(TRANSFORMATION_TYPE, true);
         createTransformationTable(transformationTables);
         GDS_ALL_TABLE_TYPES.put(TRANSFORMATION_TYPE, transformationTables);
         GDS_SYSTEM_TABLE_TYPES.add(TRANSFORMATION_TYPE);
     }
 
     private static void createGeneralTables() {
-        GdsTableType generalTables = new GdsTableType(TABLE_TYPE);
+        GdsTableType generalTables = new GdsTableType(TABLE_TYPE, false);
         GDS_ALL_TABLE_TYPES.put(TABLE_TYPE, generalTables);
     }
 
     private static void createPermissionConfigTable(GdsTableType tableHolder) {
-        GdsTable currentTable = new GdsTable("@gds.config.permission.query");
-        currentTable.addColumn(new ColumnInfo(new FieldHolderImpl("version", FieldValueType.LONG, ""), "version", 1));
+        GdsTable currentTable = new GdsTable("@gds.config.permission.query", tableHolder.getName(), true);
+        currentTable.addColumn(new ColumnInfo(new FieldHolderImpl("version", FieldValueType.KEYWORD, ""), "version", 1));
         currentTable.addColumn(new ColumnInfo(new FieldHolderImpl("is_admin_enabled", FieldValueType.BOOLEAN, ""), "is_admin_enabled", 2));
         currentTable.addColumn(new ColumnInfo(new FieldHolderImpl("config", FieldValueType.TEXT, ""), "config", 3));
         tableHolder.addTable(currentTable);
     }
 
     private static void createPermissionConfigValidationTable(GdsTableType tableHolder) {
-        GdsTable currentTable = new GdsTable("@gds.config.permission.validation");
+        GdsTable currentTable = new GdsTable("@gds.config.permission.validation", tableHolder.getName(), true);
         currentTable.addColumn(new ColumnInfo(new FieldHolderImpl("is_valid", FieldValueType.BOOLEAN, ""), "is_valid", 1));
         currentTable.addColumn(new ColumnInfo(new FieldHolderImpl("validation_issues", FieldValueType.TEXT, ""), "validation_issues", 2));
         currentTable.addColumn(new ColumnInfo(new FieldHolderImpl("insert_version", FieldValueType.LONG, ""), "insert_version", 3));
         tableHolder.addTable(currentTable);
     }
 
-    private static void createStoreConfigTable(GdsTableType tableHolder) {
-        GdsTable currentTable = new GdsTable("@gds.config.store.query");
-        currentTable.addColumn(new ColumnInfo(new FieldHolderImpl("version", FieldValueType.LONG, ""), "version", 1));
+    private static void createStoreConfigQueryTable(GdsTableType tableHolder) {
+        GdsTable currentTable = new GdsTable("@gds.config.store.query", tableHolder.getName(), true);
+        currentTable.addColumn(new ColumnInfo(new FieldHolderImpl("version", FieldValueType.KEYWORD, ""), "version", 1));
         currentTable.addColumn(new ColumnInfo(new FieldHolderImpl("config", FieldValueType.TEXT, ""), "config", 2));
         currentTable.addColumn(new ColumnInfo(new FieldHolderImpl("pending_change", FieldValueType.BOOLEAN, ""), "pending_change", 3));
         currentTable.addColumn(new ColumnInfo(new FieldHolderImpl("pending_progress", FieldValueType.LONG, ""), "pending_progress", 4));
@@ -916,58 +923,71 @@ public class GdsDatabaseMetaData implements DatabaseMetaData {
         tableHolder.addTable(currentTable);
     }
 
+    private static void createStoreConfigTablesTable(GdsTableType tableHolder) {
+        GdsTable currentTable = new GdsTable("@gds.config.store.tables", tableHolder.getName(), true);
+        currentTable.addColumn(new ColumnInfo(new FieldHolderImpl("table_name", FieldValueType.TEXT, ""), "table_name", 1));
+        currentTable.addColumn(new ColumnInfo(new FieldHolderImpl("fields", FieldValueType.TEXT, ""), "fields", 2));
+        currentTable.addColumn(new ColumnInfo(new FieldHolderImpl("id_field", FieldValueType.TEXT, ""), "id_field", 3));
+        currentTable.addColumn(new ColumnInfo(new FieldHolderImpl("id_format", FieldValueType.TEXT, ""), "id_format", 4));
+        currentTable.addColumn(new ColumnInfo(new FieldHolderImpl("id_parser", FieldValueType.TEXT, ""), "id_parser", 5));
+        currentTable.addColumn(new ColumnInfo(new FieldHolderImpl("fixed", FieldValueType.BOOLEAN, ""), "fixed", 6));
+        currentTable.addColumn(new ColumnInfo(new FieldHolderImpl("searchable", FieldValueType.BOOLEAN, ""), "searchable", 7));
+        currentTable.addColumn(new ColumnInfo(new FieldHolderImpl("max_query_page_size", FieldValueType.TEXT, ""), "max_query_page_size", 8));
+        tableHolder.addTable(currentTable);
+    }
+
     private static void createCryptoConfigQueryTable(GdsTableType tableHolder) {
-        GdsTable currentTable = new GdsTable("@gds.config.crypto.user.query");
+        GdsTable currentTable = new GdsTable("@gds.config.crypto.user.query", tableHolder.getName(), true);
         currentTable.addColumn(new ColumnInfo(new FieldHolderImpl("user", FieldValueType.TEXT, ""), "user", 1));
         currentTable.addColumn(new ColumnInfo(new FieldHolderImpl("version", FieldValueType.LONG, ""), "version", 2));
         tableHolder.addTable(currentTable);
     }
 
     private static void createCryptoConfigGetTable(GdsTableType tableHolder) {
-        GdsTable currentTable = new GdsTable("@gds.config.crypto.user.get");
+        GdsTable currentTable = new GdsTable("@gds.config.crypto.user.get", tableHolder.getName(), true);
         currentTable.addColumn(new ColumnInfo(new FieldHolderImpl("config", FieldValueType.TEXT, ""), "config", 1));
         currentTable.addColumn(new ColumnInfo(new FieldHolderImpl("reason", FieldValueType.TEXT, ""), "reason", 2));
         currentTable.addColumn(new ColumnInfo(new FieldHolderImpl("valid", FieldValueType.BOOLEAN, ""), "valid", 3));
-        currentTable.addColumn(new ColumnInfo(new FieldHolderImpl("version", FieldValueType.LONG, ""), "version", 4));
+        currentTable.addColumn(new ColumnInfo(new FieldHolderImpl("version", FieldValueType.KEYWORD, ""), "version", 4));
         tableHolder.addTable(currentTable);
     }
 
     private static void createAtsConfigTable(GdsTableType tableHolder) {
-        GdsTable currentTable = new GdsTable("@gds.config.ats.query");
-        currentTable.addColumn(new ColumnInfo(new FieldHolderImpl("version", FieldValueType.LONG, ""), "version", 1));
+        GdsTable currentTable = new GdsTable("@gds.config.ats.query", tableHolder.getName(), true);
+        currentTable.addColumn(new ColumnInfo(new FieldHolderImpl("version", FieldValueType.KEYWORD, ""), "version", 1));
         currentTable.addColumn(new ColumnInfo(new FieldHolderImpl("config", FieldValueType.TEXT, ""), "config", 2));
         tableHolder.addTable(currentTable);
     }
 
     private static void createEtsConfigTable(GdsTableType tableHolder) {
-        GdsTable currentTable = new GdsTable("@gds.config.ets.query");
-        currentTable.addColumn(new ColumnInfo(new FieldHolderImpl("version", FieldValueType.LONG, ""), "version", 1));
+        GdsTable currentTable = new GdsTable("@gds.config.ets.query", tableHolder.getName(), true);
+        currentTable.addColumn(new ColumnInfo(new FieldHolderImpl("version", FieldValueType.KEYWORD, ""), "version", 1));
         currentTable.addColumn(new ColumnInfo(new FieldHolderImpl("config", FieldValueType.TEXT, ""), "config", 2));
         tableHolder.addTable(currentTable);
     }
 
     private static void createListQueryTable(GdsTableType tableHolder) {
-        GdsTable currentTable = new GdsTable("@gds.config.list.query");
+        GdsTable currentTable = new GdsTable("@gds.config.list.query", tableHolder.getName(), true);
         currentTable.addColumn(new ColumnInfo(new FieldHolderImpl("blacklist", FieldValueType.TEXT, ""), "blacklist", 1));
         currentTable.addColumn(new ColumnInfo(new FieldHolderImpl("whitelist", FieldValueType.TEXT, ""), "whitelist", 2));
         tableHolder.addTable(currentTable);
     }
 
     private static void createListQueryDetailsTable(GdsTableType tableHolder) {
-        GdsTable currentTable = new GdsTable("@gds.config.list.query.details");
+        GdsTable currentTable = new GdsTable("@gds.config.list.query.details", tableHolder.getName(), true);
         currentTable.addColumn(new ColumnInfo(new FieldHolderImpl("blacklist", FieldValueType.TEXT, ""), "blacklist", 1));
         currentTable.addColumn(new ColumnInfo(new FieldHolderImpl("whitelist", FieldValueType.TEXT, ""), "whitelist", 2));
         currentTable.addColumn(new ColumnInfo(new FieldHolderImpl("blacklistid", FieldValueType.TEXT, ""), "blacklistid", 3));
         currentTable.addColumn(new ColumnInfo(new FieldHolderImpl("whitelistid", FieldValueType.TEXT, ""), "whitelistid", 4));
         currentTable.addColumn(new ColumnInfo(new FieldHolderImpl("blacklistheader", FieldValueType.TEXT, ""), "blacklistheader", 5));
         currentTable.addColumn(new ColumnInfo(new FieldHolderImpl("whitelistheader", FieldValueType.TEXT, ""), "whitelistheader", 6));
-        currentTable.addColumn(new ColumnInfo(new FieldHolderImpl("blacklistversion", FieldValueType.LONG, ""), "blacklistversion", 7));
-        currentTable.addColumn(new ColumnInfo(new FieldHolderImpl("whitelistversion", FieldValueType.LONG, ""), "whitelistversion", 8));
+        currentTable.addColumn(new ColumnInfo(new FieldHolderImpl("blacklistversion", FieldValueType.KEYWORD, ""), "blacklistversion", 7));
+        currentTable.addColumn(new ColumnInfo(new FieldHolderImpl("whitelistversion", FieldValueType.KEYWORD, ""), "whitelistversion", 8));
         tableHolder.addTable(currentTable);
     }
 
     private static void createTransformationTable(GdsTableType tableHolder) {
-        GdsTable currentTable = new GdsTable("@gds.config.transformations");
+        GdsTable currentTable = new GdsTable("@gds.config.transformations", tableHolder.getName(), true);
         currentTable.addColumn(new ColumnInfo(new FieldHolderImpl("class_name", FieldValueType.TEXT, ""), "class_name", 1));
         currentTable.addColumn(new ColumnInfo(new FieldHolderImpl("function_name", FieldValueType.TEXT, ""), "function_name", 2));
         currentTable.addColumn(new ColumnInfo(new FieldHolderImpl("mimetype", FieldValueType.TEXT, ""), "mimetype", 3));
@@ -978,12 +998,103 @@ public class GdsDatabaseMetaData implements DatabaseMetaData {
         tableHolder.addTable(currentTable);
     }
 
+    public void calculateAvailableTablesAndDescriptors() throws SQLException {
+        availableTables.clear();
+        for (GdsTableType descriptor : GDS_ALL_TABLE_TYPES.values()) {
+            for (Map.Entry<String, GdsTable> entry : descriptor.getTables().entrySet()) {
+                GdsTable metaTable = entry.getValue();
+                metaTable.setJDBCDescriptor(new ArrayList<>(Arrays.asList(
+                        NIL_VALUE, //TABLE_CAT
+                        NIL_VALUE, //TABLE_SCHEM
+                        new ImmutableStringValueImpl(metaTable.getTableName()), //TABLE_NAME
+                        new ImmutableStringValueImpl(entry.getKey()), //TABLE_TYPE
+                        new ImmutableStringValueImpl(""), //REMARKS
+                        NIL_VALUE, //TYPE_CAT
+                        NIL_VALUE, //TYPE_SCHEM
+                        NIL_VALUE, //TYPE_NAME
+                        NIL_VALUE, //SELF_REFERENCING_COL_NAME
+                        NIL_VALUE //REF_GENERATION
+                )));
+                for (ColumnInfo column : metaTable.getColumnsByOrdinal().values()) {
+                    metaTable.addColumn(column);
+                }
+                availableTables.put(metaTable.getTableName(), metaTable);
+            }
+        }
+
+        ResultSet resultSet = connection.createStatement().executeQuery(SELECT_FROM_GDS_CONFIG_STORE_TABLES);
+        while (resultSet.next()) {
+            String tableName = resultSet.getString(GDS_TABLE_NAME_FIELD);
+            GdsTable table = new GdsTable(tableName, TABLE_TYPE, false);
+            table.setJDBCDescriptor(new ArrayList<>(Arrays.asList(
+                    NIL_VALUE, //TABLE_CAT
+                    NIL_VALUE, //TABLE_SCHEM
+                    new ImmutableStringValueImpl(tableName), //TABLE_NAME
+                    new ImmutableStringValueImpl(TABLE_TYPE), //TABLE_TYPE
+                    new ImmutableStringValueImpl(""), //REMARKS
+                    NIL_VALUE, //TYPE_CAT
+                    NIL_VALUE, //TYPE_SCHEM
+                    NIL_VALUE, //TYPE_NAME
+                    NIL_VALUE, //SELF_REFERENCING_COL_NAME
+                    NIL_VALUE //REF_GENERATION
+            )));
+            String sql = "SELECT * FROM \"@gds.config.store.schema\" WHERE table='" + tableName + "'";
+            ResultSet resultSet2 = connection.createStatement().executeQuery(sql);
+            Map<String, FieldHolder> fieldHolderMap = new HashMap<>();
+            while (resultSet2.next()) {
+                String fieldType = resultSet2.getString("field_type");
+                String columnName = resultSet2.getString("field_name");
+                FieldHolder column = new FieldHolderImpl(columnName, FieldValueType.valueOf(fieldType.toUpperCase()), "");
+                fieldHolderMap.put(columnName, column);
+            }
+            ResultSet orderedColumnSet = connection.createStatement().executeQuery(
+                    String.format("SELECT * FROM %1$s LIMIT 0", tableName));
+            ResultSetMetaData orderedColumnSetMetaData = orderedColumnSet.getMetaData();
+            for (int ii = 1; ii <= orderedColumnSetMetaData.getColumnCount(); ++ii) {
+                String columnName = orderedColumnSetMetaData.getColumnName(ii);
+                FieldHolder fieldHolderColumn = fieldHolderMap.get(columnName);
+
+                ColumnInfo columnInfo = new ColumnInfo(fieldHolderColumn, columnName, ii);
+                columnInfo.setJDBCDescriptor(Arrays.asList(
+                        ImmutableNilValueImpl.get(), //1, TABLE_CAT
+                        ImmutableNilValueImpl.get(), //2, TABLE_SCHEM
+                        new ImmutableStringValueImpl(table.getTableName()), //3, TABLE_NAME
+                        new ImmutableStringValueImpl(columnInfo.getColumnName()), //4, COLUMN_NAME
+                        new ImmutableLongValueImpl(columnInfo.getSqlType()), //5, DATA_TYPE
+                        new ImmutableStringValueImpl(columnInfo.getColumn().getFieldType().toString()), //6, TYPE_NAME
+                        new ImmutableLongValueImpl(GdsResultSetMetaData.ColumnMetaData.getDisplaySize(columnInfo.getColumn().getFieldType())), //7, COLUMN_SIZE
+                        ImmutableNilValueImpl.get(), //8, BUFFER_LENGTH, nem tudni lehet-e null?
+                        ImmutableNilValueImpl.get(), //9, DECIMAL_DIGITS
+                        new ImmutableLongValueImpl(10), //10, NUM_PREC_RADIX
+                        new ImmutableLongValueImpl(2), //11, NULLABLE (columnNoNulls - might not allow NULL values, columnNullable - definitely allows NULL values, columnNullableUnknown - nullability unknown)
+                        ImmutableNilValueImpl.get(), //12, REMARKS
+                        ImmutableNilValueImpl.get(), //13, COLUMN_DEF
+                        new ImmutableLongValueImpl(columnInfo.getSqlType()), //14, SQL_DATA_TYPE, számok, lehetne valami?
+                        ImmutableNilValueImpl.get(), //15, SQL_DATETIME_SUB, számok, lehetne valami
+                        new ImmutableLongValueImpl(0), //16, CHAR_OCTET_LENGTH, lehetne a maximum?
+                        new ImmutableLongValueImpl(columnInfo.getOrdinalPosition()), //17, ORDINAL_POSITION
+                        new ImmutableStringValueImpl(""), //18, IS_NULLABLE
+                        ImmutableNilValueImpl.get(), //19, SCOPE_CATALOG
+                        ImmutableNilValueImpl.get(), //20, SCOPE_SCHEMA
+                        ImmutableNilValueImpl.get(), //21, SCOPE_TABLE
+                        ImmutableNilValueImpl.get(), //22, SOURCE_DATA_TYPE
+                        new ImmutableStringValueImpl("NO"), //23, IS_AUTOINCREMENT
+                        new ImmutableStringValueImpl("NO") //24, IS_GENERATEDCOLUMN
+                ));
+
+                table.addColumn(columnInfo);
+            }
+            availableTables.put(tableName, table);
+        }
+    }
+
     private final GdsJdbcConnection connection;
     private final GdsJdbcDriver driver;
 
-    GdsDatabaseMetaData(@NotNull GdsJdbcConnection connection, @NotNull GdsJdbcDriver driver) {
+    GdsDatabaseMetaData(@NotNull GdsJdbcConnection connection, @NotNull GdsJdbcDriver driver) throws SQLException {
         this.connection = connection;
         this.driver = driver;
+        calculateAvailableTablesAndDescriptors();
     }
 
     private static MessageData11QueryRequestAck createQueryResponse(List<FieldHolder> fieldHolderList, List<List<Value>> rows) {
@@ -1010,6 +1121,7 @@ public class GdsDatabaseMetaData implements DatabaseMetaData {
     }
 
     private static final Function<String, Boolean> acceptAll = v -> true;
+
     /*
      * Későbbre: a pattern lehet SQL-es (LIKE ..) is!
      * */
@@ -1038,7 +1150,7 @@ public class GdsDatabaseMetaData implements DatabaseMetaData {
     }
 
     public ResultSet getTables(String catalogName, String schemaPattern, String tableNamePattern, String[] types) throws SQLException {
-        if (null != catalogName || null != schemaPattern) {
+        if ((null != catalogName && !"".equals(catalogName)) || (null != schemaPattern && !"".equals(schemaPattern))) {
             return new DQLResultSet(EMPTY_TABLES_RESPONSE, "", connection);
         }
 
@@ -1048,152 +1160,39 @@ public class GdsDatabaseMetaData implements DatabaseMetaData {
         }
 
         Function<String, Boolean> patternCheck = getPatternChecker(tableNamePattern);
-
         List<List<Value>> rows = new ArrayList<>();
-        for (String tableType : neededTypes) {
-            if (GDS_SYSTEM_TABLE_TYPES.contains(tableType)) {
-                //config/list/transformation
-                for (String tableName : GDS_ALL_TABLE_TYPES.get(tableType).getTables().keySet()) {
-                    if (patternCheck.apply(tableName)) {
-                        rows.add(new ArrayList<>(Arrays.asList(
-                                NIL_VALUE, //TABLE_CAT
-                                NIL_VALUE, //TABLE_SCHEM
-                                new ImmutableStringValueImpl(tableName), //TABLE_NAME
-                                new ImmutableStringValueImpl(tableType), //TABLE_TYPE
-                                new ImmutableStringValueImpl(""), //REMARKS
-                                NIL_VALUE, //TYPE_CAT
-                                NIL_VALUE, //TYPE_SCHEM
-                                NIL_VALUE, //TYPE_NAME
-                                NIL_VALUE, //SELF_REFERENCING_COL_NAME
-                                NIL_VALUE //REF_GENERATION
-                        )));
-                    }
-                }
-            } else {
-                //plain table
-                ResultSet resultSet = connection.createStatement().executeQuery(SELECT_FROM_GDS_CONFIG_STORE_TABLES);
-                while (resultSet.next()) {
-                    String tableName = resultSet.getString(GDS_TABLE_NAME_FIELD);
-                    if (patternCheck.apply(tableName)) {
-                        rows.add(new ArrayList<>(Arrays.asList(
-                                NIL_VALUE, //TABLE_CAT
-                                NIL_VALUE, //TABLE_SCHEM
-                                new ImmutableStringValueImpl(tableName), //TABLE_NAME
-                                new ImmutableStringValueImpl(tableType), //TABLE_TYPE
-                                new ImmutableStringValueImpl(""), //REMARKS
-                                NIL_VALUE, //TYPE_CAT
-                                NIL_VALUE, //TYPE_SCHEM
-                                NIL_VALUE, //TYPE_NAME
-                                NIL_VALUE, //SELF_REFERENCING_COL_NAME
-                                NIL_VALUE //REF_GENERATION
-                        )));
-                    }
-                }
+
+        for (GdsTable table : availableTables.values()) {
+            if (neededTypes.contains(table.getType()) && patternCheck.apply(table.getTableName())) {
+                rows.add(table.getJDBCDescriptor());
             }
         }
-
         return new DQLResultSet(createQueryResponse(TABLES_FIELDS, rows), "", connection);
     }
 
     public ResultSet getColumns(String catalog, String schemaPattern,
                                 String tableNamePattern, String columnNamePattern) throws SQLException {
-        if (null != catalog || null != schemaPattern) {
+        if ((null != catalog && !"".equals(catalog)) || (null != schemaPattern && !"".equals(schemaPattern))) {
             return new DQLResultSet(EMPTY_COLUMNS_RESPONSE, "", connection);
         }
         Function<String, Boolean> tableNamePatternCheck = getPatternChecker(tableNamePattern);
         Function<String, Boolean> columnNamePatternCheck = getPatternChecker(columnNamePattern);
-
-        String sql = SELECT_FROM_GDS_CONFIG_STORE_TABLES;
-        ResultSet resultSet = connection.createStatement().executeQuery(sql);
-
-        List<GdsTable> tables = new ArrayList<>();
-
-        Set<String> userTables = new HashSet<>();
-        while (resultSet.next()) {
-            String tableName = resultSet.getString(GDS_TABLE_NAME_FIELD);
-            if (tableNamePatternCheck.apply(tableName)) {
-                userTables.add(tableName);
-                tables.add(new GdsTable(tableName));
-            }
-        }
-
-        for (String systemTableType : GDS_SYSTEM_TABLE_TYPES) {
-            for (GdsTable systemTable : GDS_ALL_TABLE_TYPES.get(systemTableType).getTables().values()) {
-                if (tableNamePatternCheck.apply(systemTable.getTableName())) {
-                    GdsTable table = new GdsTable(systemTable.getTableName());
-
-                    for (ColumnInfo column : systemTable.getColumnsByOrdinal().values()) {
-                        if (columnNamePatternCheck.apply(column.getColumnName())) {
-                            table.addColumn(column);
-                        }
-                    }
-                    if (!table.getColumns().isEmpty()) {
-                        tables.add(table);
-                    }
-                }
-            }
-        }
-
         List<List<Value>> rows = new ArrayList<>();
-
-        for (String userTableName : userTables) {
-            GdsTable table = new GdsTable(userTableName);
-            sql = "SELECT * FROM \"@gds.config.store.schema\" WHERE table='" + userTableName + "'";
-            resultSet = connection.createStatement().executeQuery(sql);
-            int ii = 1;
-            while (resultSet.next()) {
-                String fieldType = resultSet.getString("field_type");
-                String columnName = resultSet.getString("field_name");
-                FieldHolder column = new FieldHolderImpl(columnName, FieldValueType.valueOf(fieldType.toUpperCase()), "");
-                if (columnNamePatternCheck.apply(columnName)) {
-                    table.addColumn(new ColumnInfo(column, columnName, ii));
-                    ++ii;
+        for (GdsTable table : availableTables.values()) {
+            if (tableNamePatternCheck.apply(table.getTableName())) {
+                for (ColumnInfo columnInfo : table.getColumnsByOrdinal().values()) {
+                    if (columnNamePatternCheck.apply(columnInfo.getColumnName())) {
+                        rows.add(columnInfo.getJDBCDescriptor());
+                    }
                 }
             }
-            if (!table.getColumns().isEmpty()) {
-                tables.add(table);
-            }
         }
-
-
-        for (GdsTable queriedTable : tables) {
-            for (ColumnInfo columnInfo : queriedTable.getColumnsByOrdinal().values()) {
-                rows.add(new ArrayList<>(Arrays.asList(
-                        ImmutableNilValueImpl.get(), //1, TABLE_CAT
-                        ImmutableNilValueImpl.get(), //2, TABLE_SCHEM
-                        new ImmutableStringValueImpl(queriedTable.getTableName()), //3, TABLE_NAME
-                        new ImmutableStringValueImpl(columnInfo.getColumnName()), //4, COLUMN_NAME
-                        new ImmutableLongValueImpl(columnInfo.getSqlType()), //5, DATA_TYPE
-                        new ImmutableStringValueImpl(columnInfo.getColumn().getFieldType().toString()), //6, TYPE_NAME
-                        new ImmutableLongValueImpl(GdsResultSetMetaData.ColumnMetaData.getDisplaySize(columnInfo.getColumn().getFieldType())), //7, COLUMN_SIZE
-                        ImmutableNilValueImpl.get(), //8, BUFFER_LENGTH, nem tudni lehet-e null?
-                        ImmutableNilValueImpl.get(), //9, DECIMAL_DIGITS
-                        new ImmutableLongValueImpl(10), //10, NUM_PREC_RADIX
-                        new ImmutableLongValueImpl(2), //11, NULLABLE (columnNoNulls - might not allow NULL values, columnNullable - definitely allows NULL values, columnNullableUnknown - nullability unknown)
-                        ImmutableNilValueImpl.get(), //12, REMARKS
-                        ImmutableNilValueImpl.get(), //13, COLUMN_DEF
-                        new ImmutableLongValueImpl(columnInfo.getSqlType()), //14, SQL_DATA_TYPE, számok, lehetne valami?
-                        ImmutableNilValueImpl.get(), //15, SQL_DATETIME_SUB, számok, lehetne valami
-                        new ImmutableLongValueImpl(0), //16, CHAR_OCTET_LENGTH, lehetne a maximum?
-                        new ImmutableLongValueImpl(columnInfo.getOrdinalPosition()), //17, ORDINAL_POSITION
-                        new ImmutableStringValueImpl(""), //18, IS_NULLABLE
-                        ImmutableNilValueImpl.get(), //19, SCOPE_CATALOG
-                        ImmutableNilValueImpl.get(), //20, SCOPE_SCHEMA
-                        ImmutableNilValueImpl.get(), //21, SCOPE_TABLE
-                        ImmutableNilValueImpl.get(), //22, SOURCE_DATA_TYPE
-                        new ImmutableStringValueImpl("NO"), //23, IS_AUTOINCREMENT
-                        new ImmutableStringValueImpl("NO") //24, IS_GENERATEDCOLUMN
-                )));
-
-            }
-        }
-
         return new DQLResultSet(createQueryResponse(COLUMNS_FIELDS, rows), "", connection);
     }
 
     public ResultSet getPrimaryKeys(String catalogName, String schemaName, String tableName)
             throws SQLException {
-        if (null != catalogName || null != schemaName || null == tableName) {
+        if ((null != catalogName && !"".equals(catalogName)) || (null != schemaName && !"".equals(schemaName)) || null == tableName) {
             return new DQLResultSet(EMPTY_PRIMARY_KEYS_RESPONSE, "", connection);
         }
         String sql = "SELECT * FROM \"@gds.config.store.tables\" WHERE table='" + tableName + "'";
@@ -1217,7 +1216,7 @@ public class GdsDatabaseMetaData implements DatabaseMetaData {
 
     public ResultSet getIndexInfo(String catalogName, String schemaName, String tableName, boolean unique,
                                   boolean approximate) throws SQLException {
-        if (null != catalogName || null == tableName || null != schemaName) {
+        if ((null != catalogName && !"".equals(catalogName)) || (null != schemaName && !"".equals(schemaName)) || null == tableName) {
             return new DQLResultSet(EMPTY_INDEX_INFO_RESPONSE, "", connection);
         }
         String sql = "SELECT * FROM \"@gds.config.store.tables\" WHERE table='" + tableName + "'";
@@ -1239,7 +1238,7 @@ public class GdsDatabaseMetaData implements DatabaseMetaData {
                     new ImmutableStringValueImpl(id_field), //COLUMN_NAME String
                     new ImmutableStringValueImpl("A"), //ASC_OR_DESC String
                     new ImmutableLongValueImpl(0), //CARDINALITY long ez az összes a rekord száma a db-ben.
-                                                        // Amíg nincs "SELECT COUNT(*) FROM table", addig ezt sem tudjuk
+                    // Amíg nincs "SELECT COUNT(*) FROM table", addig ezt sem tudjuk
                     new ImmutableLongValueImpl(0), //PAGES long
                     ImmutableNilValueImpl.get() //FILTER_CONDITION String
             )));
@@ -1255,7 +1254,7 @@ public class GdsDatabaseMetaData implements DatabaseMetaData {
         if (iface.isAssignableFrom(getClass())) {
             return iface.cast(this);
         }
-        throw new SQLException("Cannot unwrap to " + iface.getName());
+        throw new TypeMismatchException("Cannot unwrap to " + iface.getName());
     }
 
     public boolean isWrapperFor(Class<?> iface) {
@@ -1311,8 +1310,8 @@ public class GdsDatabaseMetaData implements DatabaseMetaData {
     }
 
     public String getDatabaseProductVersion() {
-        //The current GDS Version is "5.1"
-        return "5.1";
+        //The current GDS Version is "5.2"
+        return "5.2";
     }
 
     public String getDriverName() {
@@ -1885,7 +1884,7 @@ public class GdsDatabaseMetaData implements DatabaseMetaData {
     @Override
     public ResultSet getBestRowIdentifier(String catalogName, String schemaName, String table, int scope,
                                           boolean nullable) throws SQLException {
-       //Each table scheme can have a unique column name as an ID (specified in the scheme as 'id_field').
+        //Each table scheme can have a unique column name as an ID (specified in the scheme as 'id_field').
         return new DQLResultSet(EMPTY_BEST_ROW_IDENTIFIER_RESPONSE, "", connection);
     }
 
@@ -1966,7 +1965,7 @@ public class GdsDatabaseMetaData implements DatabaseMetaData {
 
     @Override
     public boolean updatesAreDetected(int type) {
-         // The AbstractGdsResultSet tracks updates.
+        // The AbstractGdsResultSet tracks updates.
         return true;
     }
 
@@ -1978,7 +1977,7 @@ public class GdsDatabaseMetaData implements DatabaseMetaData {
 
     @Override
     public boolean insertsAreDetected(int type) {
-         // The AbstractGdsResultSet tracks inserts.
+        // The AbstractGdsResultSet tracks inserts.
         return true;
     }
 

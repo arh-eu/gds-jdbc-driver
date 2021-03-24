@@ -1,5 +1,6 @@
 package hu.gds.jdbc;
 
+import hu.gds.jdbc.error.GdsException;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -83,7 +84,7 @@ public class GdsClientURI {
             gdsConnection = new GdsConnection(this);
             gdsConnection.initConnection();
         } catch (Throwable ex) {
-            throw new SQLException(ex);
+            throw new GdsException(ex);
         }
         return gdsConnection;
     }

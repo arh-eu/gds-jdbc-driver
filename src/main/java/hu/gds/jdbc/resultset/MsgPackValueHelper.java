@@ -1,5 +1,6 @@
 package hu.gds.jdbc.resultset;
 
+import hu.gds.jdbc.error.TypeMismatchException;
 import hu.gds.jdbc.types.ArrayImpl;
 import hu.gds.jdbc.types.JavaTypes;
 import org.msgpack.value.*;
@@ -10,10 +11,7 @@ import java.util.*;
 
 class MsgPackValueHelper {
     private static boolean isNull(Value value) {
-        if (null == value || value.isNilValue()) {
-            return true;
-        }
-        return false;
+        return null == value || value.isNilValue();
     }
 
     private static boolean isFit(long value, long min, long max) {
@@ -51,21 +49,19 @@ class MsgPackValueHelper {
     public static NumberValue getNumberValueFromValue(Value value, JavaTypes targetType) throws SQLException {
         NumberValue numberValue;
         if (isNull(value)) {
-            numberValue = new ImmutableLongValueImpl(0);
+            numberValue = new ImmutableLongValueImpl(0L);
         } else if (value.isNumberValue()) {
             numberValue = value.asNumberValue();
         } else {
-            throw new SQLException("Cannot convert the column of type " + value.getValueType().name() + " to " + targetType + ".");
+            throw new TypeMismatchException("Cannot convert the column of type " + value.getValueType().name() + " to " + targetType + ".");
         }
         boolean isFit;
         switch (targetType) {
             case LONG:
-                isFit = true;
-                break;
             case DOUBLE:
                 isFit = true;
                 break;
-            case BYTE :
+            case BYTE:
                 isFit = isFitToByte(numberValue.toLong());
                 break;
             case SHORT:
@@ -78,10 +74,10 @@ class MsgPackValueHelper {
                 isFit = isFitToFloat(numberValue.toDouble());
                 break;
             default:
-                throw new SQLException("Cannot convert the column of type " + value.getValueType().name() + " to " + targetType + ".");
+                throw new TypeMismatchException("Cannot convert the column of type " + value.getValueType().name() + " to " + targetType + ".");
         }
         if (!isFit) {
-            throw new SQLException("Cannot convert the value " + value.toString() + " to " + targetType);
+            throw new TypeMismatchException("Cannot convert the value " + value.toString() + " to " + targetType);
         }
         return numberValue;
     }
@@ -111,7 +107,7 @@ class MsgPackValueHelper {
                 return true;
             }
         }
-        throw new SQLException("Cannot convert the column of type " + value.getValueType().name() + " to boolean.");
+        throw new TypeMismatchException("Cannot convert the column of type " + value.getValueType().name() + " to boolean.");
     }
 
     static String getStringFromValue(Value value, boolean checkType) throws SQLException {
@@ -121,7 +117,7 @@ class MsgPackValueHelper {
         if (value.isStringValue()) {
             return value.asStringValue().asString();
         } else if (checkType) {
-            throw new SQLException("Cannot convert the column of type " + value.getValueType().name() + " to string.");
+            throw new TypeMismatchException("Cannot convert the column of type " + value.getValueType().name() + " to string.");
         }
         return value.toString();
     }
@@ -131,7 +127,7 @@ class MsgPackValueHelper {
             return null;
         }
         if (!value.isArrayValue()) {
-            throw new SQLException("Cannot convert the column of type " + value.getValueType().name() + " to array.");
+            throw new TypeMismatchException("Cannot convert the column of type " + value.getValueType().name() + " to array.");
         }
         List<Object> objectsList = new ArrayList<>();
         List<Value> valuesList = value.asArrayValue().list();
@@ -145,7 +141,7 @@ class MsgPackValueHelper {
             } else if (item.isBooleanValue()) {
                 objectsList.add(item.asBooleanValue().getBoolean());
             } else {
-                throw new SQLException("Not allowed array item type found: " + item);
+                throw new TypeMismatchException("Not allowed array item type found: " + item);
             }
         }
         return new ArrayImpl(objectsList, subType);
@@ -160,7 +156,7 @@ class MsgPackValueHelper {
             case DOUBLE:
                 return value.toDouble();
             default:
-        throw new SQLException("Unknown value type found: " + typeName);
+                throw new TypeMismatchException("Unknown value type found: " + typeName);
         }
     }
 
@@ -188,6 +184,6 @@ class MsgPackValueHelper {
         if (value.isIntegerValue() && mimeType.equals("datetime")) {
             return new Timestamp(value.asNumberValue().toLong());
         }
-        throw new SQLException("Cannot convert the column of type " + value.getValueType().name() + ", mime type \"" + mimeType + "\" to timestamp.");
+        throw new TypeMismatchException("Cannot convert the column of type " + value.getValueType().name() + ", mime type \"" + mimeType + "\" to timestamp.");
     }
 }

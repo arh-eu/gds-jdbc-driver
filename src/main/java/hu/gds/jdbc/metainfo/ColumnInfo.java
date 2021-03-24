@@ -7,14 +7,17 @@
 package hu.gds.jdbc.metainfo;
 
 import hu.arheu.gds.message.data.FieldHolder;
+import org.msgpack.value.Value;
 
 import java.sql.Types;
+import java.util.List;
 import java.util.Objects;
 
 public class ColumnInfo {
     private final FieldHolder column;
     private final String columnName;
     private final int ordinalPosition;
+    private List<Value> JDBCDescriptor;
 
     public ColumnInfo(FieldHolder column, String columnName, int ordinalPosition) {
         this.column = column;
@@ -78,5 +81,13 @@ public class ColumnInfo {
     @Override
     public int hashCode() {
         return Objects.hash(column, columnName, ordinalPosition);
+    }
+
+    public void setJDBCDescriptor(List<Value> value) {
+        this.JDBCDescriptor = value;
+    }
+
+    public List<Value> getJDBCDescriptor() {
+        return JDBCDescriptor;
     }
 }

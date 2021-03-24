@@ -7,6 +7,9 @@ import hu.gds.jdbc.AttachmentInsertConverter;
 import hu.gds.jdbc.DriverPropertyInfoHelper;
 import hu.gds.jdbc.GdsBaseStatement;
 import hu.gds.jdbc.GdsConnection;
+import hu.gds.jdbc.error.ClosedResultSetException;
+import hu.gds.jdbc.error.GdsException;
+import hu.gds.jdbc.error.InvalidParameterException;
 import org.msgpack.value.Value;
 
 import java.sql.SQLException;
@@ -22,9 +25,13 @@ public class DMLResultSet extends AbstractGdsResultSet {
     private String tableName;
 
     private int rowNumber = 0;
-    private final Iterator<DMLResultSet> resultSetIterator;
+    //private final Iterator<DMLResultSet> resultSetIterator;
+    private final Iterator<ResultSetWrapper> resultSetIterator;
+
     private boolean inserted = false;
     private boolean updated = false;
+
+    private ResultSetWrapper currentResultSetWrapper;
     private DMLResultSet currentResultSet;
 
     public DMLResultSet(Map<String, byte[]> attachments,
@@ -43,7 +50,7 @@ public class DMLResultSet extends AbstractGdsResultSet {
             if (!AckStatus.OK.equals(orphanAttachmentInsertResult.getGlobalStatus())) {
                 mutationCount = 0;
                 resultSetIterator = null;
-                throw new SQLException("The DML response is not ok: " + orphanAttachmentInsertResult.getGlobalStatus() + " cause: " + orphanAttachmentInsertResult.getGlobalException(), sql, -1);
+                throw new GdsException("The DML response is not ok: " + orphanAttachmentInsertResult.getGlobalStatus() + " cause: " + orphanAttachmentInsertResult.getGlobalException());
             }
             mutationCount = 1;
             insertedRows = new ArrayList<>();
@@ -53,8 +60,10 @@ public class DMLResultSet extends AbstractGdsResultSet {
             tableNames.add(orphanAttachmentInsertResult.getData().getResult().getOwnerTable());
             rows = new ArrayList<>();
             List<FieldHolder> fields = new ArrayList<>();
-            List<DMLResultSet> resultSets = new ArrayList<>();
-            resultSets.add(new DMLResultSet((int) mutationCount, statement, queryId, fields, rows, sql, insertedRows, updatedRows, tableNames));
+            List<ResultSetWrapper> resultSets = new ArrayList<>();
+            DMLResultSet temp = new DMLResultSet((int) mutationCount, statement, queryId, fields, rows, sql, insertedRows, updatedRows, tableNames);
+            resultSets.add(new ResultSetWrapper(temp, temp.rows.size() == 0));
+            //resultSets.add(new DMLResultSet((int) mutationCount, statement, queryId, fields, rows, sql, insertedRows, updatedRows, tableNames));
             resultSetIterator = resultSets.iterator();
             nextDMLResultSet();
         } else {
@@ -65,10 +74,10 @@ public class DMLResultSet extends AbstractGdsResultSet {
             if (!AckStatus.OK.equals(dmlResponse.getGlobalStatus())) {
                 mutationCount = 0;
                 resultSetIterator = null;
-                throw new SQLException("The DML response is not ok: " + dmlResponse.getGlobalStatus() + " cause: " + dmlResponse.getGlobalException(), sql, -1);
+                throw new GdsException("The DML response is not ok: " + dmlResponse.getGlobalStatus() + " cause: " + dmlResponse.getGlobalException());
             }
             int oks = 0;
-            List<DMLResultSet> resultSets = new ArrayList<>();
+            List<ResultSetWrapper> resultSets = new ArrayList<>();
             for (EventResultHolder resultHolder : dmlResponse.getEventResult()) {
                 int mutated = 0;
                 rows = new ArrayList<>();
@@ -98,7 +107,8 @@ public class DMLResultSet extends AbstractGdsResultSet {
                     }
                     tableNames.add(eventSubResultHolder.getTableName());
                 }
-                resultSets.add(new DMLResultSet(mutated, statement, queryId, fields, rows, sql, insertedRows, updatedRows, tableNames));
+                DMLResultSet temp = new DMLResultSet(mutated, statement, queryId, fields, rows, sql, insertedRows, updatedRows, tableNames);
+                resultSets.add(new ResultSetWrapper(temp, temp.rows.size() == 0));
             }
             resultSetIterator = resultSets.iterator();
             nextDMLResultSet();
@@ -120,10 +130,15 @@ public class DMLResultSet extends AbstractGdsResultSet {
 
     public void nextDMLResultSet() throws SQLException {
         try {
-            this.currentResultSet = resultSetIterator.next();
+            this.currentResultSetWrapper = resultSetIterator.next();
+            this.currentResultSet = currentResultSetWrapper.getResultSet().asDmlResultSet();
         } catch (Throwable e) {
             throw new SQLException(e);
         }
+    }
+
+    public ResultSetWrapper getCurrentDMLResultSetWrapper() {
+        return currentResultSetWrapper;
     }
 
     public boolean hasNextDMLResultSet() {
@@ -166,7 +181,7 @@ public class DMLResultSet extends AbstractGdsResultSet {
     @Override
     public boolean next() throws SQLException {
         if (isClosed) {
-            throw new SQLException("ResultSet was previously closed.");
+            throw new ClosedResultSetException(sql);
         }
         currentRow = null;
         if (index < rows.size()) {
@@ -190,7 +205,7 @@ public class DMLResultSet extends AbstractGdsResultSet {
     public int findColumn(String columnLabel) throws SQLException {
         Integer col = fieldsIndexMap.get(columnLabel);
         if (null == col) {
-            throw new SQLException("No such column " + columnLabel);
+            throw new InvalidParameterException("No such column " + columnLabel);
         }
         return col + 1;
     }

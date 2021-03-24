@@ -2,12 +2,14 @@ package hu.gds.jdbc.resultset;
 
 import hu.arheu.gds.message.data.FieldValueType;
 import hu.gds.jdbc.GdsJdbcConnection;
+import hu.gds.jdbc.error.ColumnIndexException;
+import hu.gds.jdbc.error.InvalidParameterException;
 import hu.gds.jdbc.types.JavaTypes;
+import hu.gds.jdbc.util.GdsConstants;
 import org.jetbrains.annotations.NotNull;
 
 import java.sql.*;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.*;
 
 public class GdsResultSetMetaData implements ResultSetMetaData {
 
@@ -19,10 +21,52 @@ public class GdsResultSetMetaData implements ResultSetMetaData {
     private final String tableName;
     private final GdsJdbcConnection connection;
 
+    private final Set<String> caseSensitiveFields;
+    private final Map<String, Boolean> searchableCache;
+    private final Map<String, Integer> columnNameToIndex;
+
+    private boolean cacheCalculated = false;
+
     public GdsResultSetMetaData(@NotNull List<ColumnMetaData> columnMetaData, String tableName, GdsJdbcConnection connection) {
         this.columnMetaData = columnMetaData;
         this.tableName = tableName;
         this.connection = connection;
+        this.caseSensitiveFields = new HashSet<>();
+        this.searchableCache = new HashMap<>();
+        this.columnNameToIndex = new HashMap<>();
+
+        for (int ii = 0; ii < columnMetaData.size(); ++ii) {
+            columnNameToIndex.put(columnMetaData.get(ii).name, ii);
+        }
+    }
+
+    private void calculateCachedData() throws SQLException {
+        String newTableName = tableName;
+        if (tableName.startsWith("\"")) {
+            newTableName = tableName.replaceAll("\"", "");
+        }
+        String sql = "SELECT * FROM \"@gds.config.store.schema\" WHERE table = '" + newTableName + "'";
+
+        ResultSet rs = connection.createStatement().executeQuery(sql);
+        while (rs.next()) {
+            String field = rs.getString("field_name");
+            String analyzer = null;
+            if (columnNameToIndex.containsKey(GdsConstants.ANALYZER)) {
+                analyzer = rs.getString(GdsConstants.ANALYZER);
+            }
+
+            searchableCache.put(field, rs.getBoolean("searchable"));
+            String javaTypeName = columnMetaData.get(columnNameToIndex.get(field)).javaType.getTypeName();
+
+            if ("string".equals(javaTypeName) || "array".equals(javaTypeName) || "map".equals(javaTypeName)) {
+                if ((null == analyzer) || "keyword".equals(analyzer) || "whitespace".equals(analyzer)) {
+                    caseSensitiveFields.add(field);
+                }
+            }
+        }
+
+        searchableCache.putIfAbsent(GdsConstants.TO_VALID_FIELD, false);
+        searchableCache.putIfAbsent(GdsConstants.TTL_FIELD, false);
     }
 
     public static GdsResultSetMetaData.ColumnMetaData createColumn(String name, JavaTypes javaType, JavaTypes javaSubType, String mimeType, FieldValueType gdsType) {
@@ -31,7 +75,7 @@ public class GdsResultSetMetaData implements ResultSetMetaData {
 
     public List<String> getColumnNames() {
         List<String> columnNames = new ArrayList<>();
-        for(ColumnMetaData c: columnMetaData) {
+        for (ColumnMetaData c : columnMetaData) {
             columnNames.add(c.name);
         }
         return columnNames;
@@ -61,91 +105,44 @@ public class GdsResultSetMetaData implements ResultSetMetaData {
     @Override
     public boolean isCaseSensitive(int column) throws SQLException {
         checkColumnIndex(column);
-        ColumnMetaData c = columnMetaData.get(column - 1);
-        Statement stmt;
-        String newTableName=tableName;
-        if(tableName.startsWith("\"")) {
-            newTableName = tableName.replaceAll("\"", "");
-        }
-        String sql = "SELECT * FROM \"@gds.config.store.schema\" WHERE table = '" + newTableName + "'";
-        ResultSet rs;
-        switch(c.javaType.getTypeName()) {
-            case "string":
-                stmt = connection.createStatement();
-                try {
-                    rs = stmt.executeQuery(sql);
-                    while(rs.next()) {
-                        if(rs.getString("field_name").equals(c.name)) {
-                            String an;
-                            an = rs.getString("analyzer");
-                            if (an == null) {
-                                an = "keyword";
-                            }
-                            switch (an) {
-                                case "keyword":
-                                case "whitespace":
-                                    return true;
-                                default:
-                                    return false;
-                            }
-                        }
-                    }
-                    return true;
-                } catch(SQLException e) {
-                    return true;
-                }
-            case "array":
-            case "map":
-                if ("string".equals(c.javaSubType.getTypeName())) {
-                    stmt = connection.createStatement();
-                    try {
-                        rs = stmt.executeQuery(sql);
-                        while(rs.next()) {
-                            if(rs.getString("field_name").equals(c.name)) {
-                                String an;
-                                an = rs.getString("analyzer");
-                                if (an == null) {
-                                    an = "keyword";
-                                }
-                                switch (an) {
-                                    case "keyword":
-                                    case "whitespace":
-                                        return true;
-                                    default:
-                                        return false;
-                                }
-                            }
-                        }
-                        return true;
-                    } catch(SQLException e) {
-                        return true;
-                    }
-                }
-            default:
-                return false;
+        checkCache();
+        String columnName = columnMetaData.get(column - 1).name;
+        return caseSensitiveFields.contains(columnName);
+    }
+
+    private void checkCache() throws SQLException {
+        if (!cacheCalculated) {
+            calculateCachedData();
+            cacheCalculated = true;
         }
     }
 
     @Override
     public boolean isSearchable(int column) throws SQLException {
         checkColumnIndex(column);
-        final String ATTACHMENT_TABLE_SUFFIX = "-@attachment\"";
-        if(tableName.endsWith(ATTACHMENT_TABLE_SUFFIX)) {
-            String s = columnMetaData.get(column-1).name;
-            return "id".equals(s) || "ownerid".equals(s);
+        checkCache();
+        String columnName = columnMetaData.get(column - 1).name;
+
+        if (tableName.endsWith(GdsConstants.ATTACHMENT_TABLE_SUFFIX)) {
+            return GdsConstants.ID_FIELD.equals(columnName) || GdsConstants.OWNER_ID_FIELD.equals(columnName);
         }
-        Statement stmt = connection.createStatement();
-        String sql = "SELECT * FROM \"@gds.config.store.schema\" WHERE table = '" + tableName + "'";
-        ResultSet rs = stmt.executeQuery(sql);
-        while(rs.next()) {
-            if(rs.getString("field_name").equals(columnMetaData.get(column-1).name)) {
-                return rs.getBoolean("searchable");
-            }
+
+        //@timestamp is always searchable.
+        if (columnName.equals(GdsConstants.TIMESTAMP_FIELD)) {
+            return true;
         }
-        if(columnMetaData.get(column-1).name.equals("@@version") || columnMetaData.get(column-1).name.equals("@ttl") || columnMetaData.get(column-1).name.equals("@to_valid")) {
+
+        //@@version is never searchable.
+        if (columnName.equals(GdsConstants.VERSION_FIELD)) {
             return false;
         }
-        throw new SQLException("Cannot find column: " + column + ". (Aliased columns are not supported with isSearchable(..)!");
+
+        //it should be cached
+        if (searchableCache.containsKey(columnName)) {
+            return searchableCache.get(columnName);
+        }
+
+        throw new InvalidParameterException("Cannot find column: " + column + ". (Aliased columns are not supported with isSearchable(..)!");
     }
 
     @Override
@@ -229,18 +226,19 @@ public class GdsResultSetMetaData implements ResultSetMetaData {
     @Override
     public boolean isReadOnly(int column) throws SQLException {
         checkColumnIndex(column);
-        return false;
+        String columnName = columnMetaData.get(column - 1).name;
+        return GdsConstants.isReadOnlyField(columnName);
     }
 
     @Override
     public boolean isWritable(int column) throws SQLException {
         checkColumnIndex(column);
-        return false;
+        String columnName = columnMetaData.get(column - 1).name;
+        return !GdsConstants.isReadOnlyField(columnName);
     }
 
     @Override
-    public boolean isDefinitelyWritable(int column) throws SQLException {
-        checkColumnIndex(column);
+    public boolean isDefinitelyWritable(int column) {
         return false;
     }
 
@@ -262,12 +260,12 @@ public class GdsResultSetMetaData implements ResultSetMetaData {
 
     public String getMimeType(int column) throws SQLException {
         checkColumnIndex(column);
-        return columnMetaData.get(column -1).getMimeType();
+        return columnMetaData.get(column - 1).getMimeType();
     }
 
     private void checkColumnIndex(int column) throws SQLException {
-        if(column<1 || column>columnMetaData.size()) {
-            throw new SQLException("The column index is out of range: " + column + ", number of columns: " + columnMetaData.size() + ").");
+        if (column < 1 || column > columnMetaData.size()) {
+            throw new ColumnIndexException("The column index is out of range: " + column + ", number of columns: " + columnMetaData.size() + ").");
         }
     }
 
@@ -339,10 +337,9 @@ public class GdsResultSetMetaData implements ResultSetMetaData {
         }
 
         public static int getScale(FieldValueType gdsType) {
-            if(gdsType.equals(FieldValueType.DOUBLE) || gdsType.equals(FieldValueType.DOUBLE_ARRAY)) {
+            if (gdsType.equals(FieldValueType.DOUBLE) || gdsType.equals(FieldValueType.DOUBLE_ARRAY)) {
                 return 16;
-            }
-            else {
+            } else {
                 return NOT_APPLICABLE_SCALE;
             }
         }
@@ -384,7 +381,7 @@ public class GdsResultSetMetaData implements ResultSetMetaData {
         }
 
         public static boolean isSigned(FieldValueType gdsType) {
-            switch(gdsType) {
+            switch (gdsType) {
                 case DOUBLE:
                 case DOUBLE_ARRAY:
                 case INTEGER:

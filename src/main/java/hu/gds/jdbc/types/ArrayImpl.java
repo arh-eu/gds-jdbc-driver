@@ -1,5 +1,7 @@
 package hu.gds.jdbc.types;
 
+import hu.gds.jdbc.error.ColumnIndexException;
+import hu.gds.jdbc.error.InvalidParameterException;
 import hu.gds.jdbc.error.SQLFeatureNotImplemented;
 
 import java.sql.Array;
@@ -26,12 +28,12 @@ public class ArrayImpl implements Array {
     }
 
     @Override
-    public String getBaseTypeName() throws SQLException {
+    public String getBaseTypeName() {
         return arrayItemsType.getTypeName();
     }
 
     @Override
-    public int getBaseType() throws SQLException {
+    public int getBaseType() {
         return arrayItemsType.getSqlType();
     }
 
@@ -60,13 +62,13 @@ public class ArrayImpl implements Array {
             throw new SQLFeatureNotSupportedException();
         }
         if (index < 1 || index > array.length) {
-            throw new SQLException("The column index is out of range: " + index + ", number of columns: " + array.length + ".");
+            throw new ColumnIndexException("The column index is out of range: " + index + ", number of columns: " + array.length + ".");
         }
         if (index - 1L + (long) count > (long) array.length) {
-            throw new SQLException("The column index is out of range: " + index + ", count: " + count + ", number of columns: " + array.length + ".");
+            throw new ColumnIndexException("The column index is out of range: " + index + ", count: " + count + ", number of columns: " + array.length + ".");
         }
         if(count <= 0) {
-            throw new SQLException("Invalid count number: " + count + ".");
+            throw new InvalidParameterException("Invalid count number: " + count + ".");
         }
         return Arrays.copyOfRange(array, (int) index - 1, (int)index - 1 + count);
     }

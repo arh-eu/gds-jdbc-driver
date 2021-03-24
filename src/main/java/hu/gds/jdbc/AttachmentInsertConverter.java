@@ -12,6 +12,7 @@ import net.sf.jsqlparser.schema.Column;
 import net.sf.jsqlparser.schema.Table;
 import net.sf.jsqlparser.statement.Statements;
 import net.sf.jsqlparser.statement.insert.Insert;
+import hu.gds.jdbc.util.GdsConstants;
 
 import java.io.IOException;
 import java.sql.SQLException;
@@ -21,11 +22,7 @@ import java.util.List;
 import java.util.Map;
 
 public class AttachmentInsertConverter {
-    private static final String META_FIELD_NAME = "meta";
     private static final String TTL_FIELD_NAME = "ttl";
-    private static final String OWNER_ID_FIELD_NAME = "ownerid";
-    private static final String ATTACHMENT_DATA_FIELD_NAME = "data";
-    private static final String ATTACHMENT_ID_FIELD_NAME = "id";
 
     public static MessageData6AttachmentResponse getMessageData6AttachmentResponse(String sql)
             throws SQLException, IOException, ValidationException, JSQLParserException {
@@ -36,10 +33,10 @@ public class AttachmentInsertConverter {
 
         String tableName = getTableName(insert);
         String meta = null;
-        Long ttl;
-        String ownerId = null;
+        long ttl;
+        String ownerId;
         byte[] attachment;
-        String attachmentId = null;
+        String attachmentId;
 
         ItemsList itemsList = insert.getItemsList();
         ExpressionList expressionList = (ExpressionList) itemsList;
@@ -47,7 +44,7 @@ public class AttachmentInsertConverter {
 
         Map<String, Integer> columnIndexMapping = getColumnIndexMapping(insert);
 
-        Integer metaFieldIndex = columnIndexMapping.get(META_FIELD_NAME);
+        Integer metaFieldIndex = columnIndexMapping.get(GdsConstants.META_FIELD);
         if (metaFieldIndex != null) {
             meta = ((StringValue) expressions.get(metaFieldIndex)).getValue();
         }
@@ -57,20 +54,20 @@ public class AttachmentInsertConverter {
         } else {
             throw new SQLException("Column 'ttl' is a mandatory field and it not found in the orphan attachment insert.", insert.toString(), -1);
         }
-        Integer ownerIdFieldIndex = columnIndexMapping.get(OWNER_ID_FIELD_NAME);
+        Integer ownerIdFieldIndex = columnIndexMapping.get(GdsConstants.OWNER_ID_FIELD);
         if (ownerIdFieldIndex != null) {
             ownerId = ((StringValue) expressions.get(ownerIdFieldIndex)).getValue();
         } else {
             throw new SQLException("Column 'ownerid' is a mandatory field and it not found in the orphan attachment insert.", insert.toString(), -1);
         }
-        Integer attachmentDataFieldIndex = columnIndexMapping.get(ATTACHMENT_DATA_FIELD_NAME);
+        Integer attachmentDataFieldIndex = columnIndexMapping.get(GdsConstants.DATA_FIELD);
         if (attachmentDataFieldIndex != null) {
             attachment = GdsBaseStatement.hexStringToByteArray(
                     ((HexValue) expressions.get(attachmentDataFieldIndex)).getValue().substring(2));
         } else {
             throw new SQLException("Column 'data' is a mandatory field and it not found in the orphan attachment insert.", insert.toString(), -1);
         }
-        Integer attachmentIdFieldIndex = columnIndexMapping.get(ATTACHMENT_ID_FIELD_NAME);
+        Integer attachmentIdFieldIndex = columnIndexMapping.get(GdsConstants.ID_FIELD);
         if (attachmentIdFieldIndex != null) {
             attachmentId = ((StringValue) expressions.get(attachmentIdFieldIndex)).getValue();
         } else {
@@ -97,25 +94,25 @@ public class AttachmentInsertConverter {
         Map<String, Integer> columnIndexMapping = new HashMap<>();
         List<Column> columns = insert.getColumns();
         if (null == columns || columns.isEmpty()) {
-            throw new SQLException("There is no columns in attachment insert", insert.toString(), -1);
+            throw new SQLException("There are no columns in attachment insert", insert.toString(), -1);
         }
         for (int i = 0; i < columns.size(); i++) {
             String columnName = columns.get(i).getColumnName();
             switch (columnName) {
-                case META_FIELD_NAME:
-                    columnIndexMapping.put(META_FIELD_NAME, i);
+                case GdsConstants.META_FIELD:
+                    columnIndexMapping.put(GdsConstants.META_FIELD, i);
                     break;
                 case TTL_FIELD_NAME:
                     columnIndexMapping.put(TTL_FIELD_NAME, i);
                     break;
-                case OWNER_ID_FIELD_NAME:
-                    columnIndexMapping.put(OWNER_ID_FIELD_NAME, i);
+                case GdsConstants.OWNER_ID_FIELD:
+                    columnIndexMapping.put(GdsConstants.OWNER_ID_FIELD, i);
                     break;
-                case ATTACHMENT_DATA_FIELD_NAME:
-                    columnIndexMapping.put(ATTACHMENT_DATA_FIELD_NAME, i);
+                case GdsConstants.DATA_FIELD:
+                    columnIndexMapping.put(GdsConstants.DATA_FIELD, i);
                     break;
-                case ATTACHMENT_ID_FIELD_NAME:
-                    columnIndexMapping.put(ATTACHMENT_ID_FIELD_NAME, i);
+                case GdsConstants.ID_FIELD:
+                    columnIndexMapping.put(GdsConstants.ID_FIELD, i);
                     break;
                 default:
                     throw new SQLException("Unknown column name found in orphan attachment insert: " + columnName, insert.toString(), -1);
