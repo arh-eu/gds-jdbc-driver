@@ -23,7 +23,7 @@ Probably you do not need to manually compile the driver. You simply download the
         <dependency>
             <groupId>com.github.arh-eu</groupId>
             <artifactId>gds-jdbc</artifactId>
-            <version>1.0</version>
+            <version>1.1</version>
         </dependency>
     </dependencies>
 </project>
