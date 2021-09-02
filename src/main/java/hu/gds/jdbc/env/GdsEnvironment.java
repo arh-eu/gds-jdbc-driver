@@ -1,6 +1,7 @@
 package hu.gds.jdbc.env;
 
 import hu.gds.jdbc.encryption.CryptoManager;
+import hu.gds.jdbc.error.InvalidArgumentException;
 
 import java.util.Optional;
 
@@ -52,7 +53,7 @@ public class GdsEnvironment {
          * @param securityConfig the custom security config to use.
          * @return this {@link GdsEnvironment.Builder} for chaining purposes.
          */
-        public Builder securityConfig(final SecurityConfig.Builder securityConfig) {
+        public Builder securityConfig(final SecurityConfig.Builder securityConfig) throws InvalidArgumentException {
             this.securityConfig = notNull(securityConfig, "SecurityConfig");
             return this;
         }

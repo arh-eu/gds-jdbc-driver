@@ -15,4 +15,8 @@ public class GdsException extends SQLException {
     public GdsException(Throwable throwable) {
         super(throwable);
     }
+
+    public GdsException(String message, Throwable cause, ErrorContext ctx) {
+        super(message + " Context: " + String.valueOf(ctx), cause);
+    }
 }

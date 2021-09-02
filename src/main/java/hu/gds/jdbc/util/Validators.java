@@ -29,14 +29,14 @@ public class Validators {
      * @param input      the input to check.
      * @param identifier the identifier that is part of the exception message.
      */
-    public static <T> T notNull(final T input, final String identifier) {
+    public static <T> T notNull(final T input, final String identifier) throws InvalidArgumentException {
         if (input == null) {
             throw InvalidArgumentException.fromMessage(identifier + " cannot be null");
         }
         return input;
     }
 
-    public static <T> T notNull(final T input, final String identifier, final Supplier<ErrorContext> errorContext) {
+    public static <T> T notNull(final T input, final String identifier, final Supplier<ErrorContext> errorContext) throws InvalidArgumentException {
         try {
             return notNull(input, identifier);
         } catch (Exception cause) {
@@ -53,7 +53,7 @@ public class Validators {
      * @param input      the string to check.
      * @param identifier the identifier that is part of the exception message.
      */
-    public static String notNullOrEmpty(final String input, final String identifier) {
+    public static String notNullOrEmpty(final String input, final String identifier) throws InvalidArgumentException {
         if (input == null || input.isEmpty()) {
             throw InvalidArgumentException.fromMessage(identifier + " cannot be null or empty");
         }
@@ -61,7 +61,7 @@ public class Validators {
     }
 
     public static String notNullOrEmpty(final String input, final String identifier,
-                                        final Supplier<ErrorContext> errorContext) {
+                                        final Supplier<ErrorContext> errorContext) throws InvalidArgumentException {
         try {
             return notNullOrEmpty(input, identifier);
         } catch (Exception cause) {
@@ -69,7 +69,7 @@ public class Validators {
         }
     }
 
-    public static <T> List<T> notNullOrEmpty(final List<T> input, final String identifier) {
+    public static <T> List<T> notNullOrEmpty(final List<T> input, final String identifier) throws InvalidArgumentException {
         if (input == null || input.isEmpty()) {
             throw InvalidArgumentException.fromMessage(identifier + " cannot be null or empty");
         }
@@ -77,7 +77,7 @@ public class Validators {
     }
 
     public static <T> List<T> notNullOrEmpty(final List<T> input, final String identifier,
-                                             final Supplier<ErrorContext> errorContext) {
+                                             final Supplier<ErrorContext> errorContext) throws InvalidArgumentException {
         try {
             return notNullOrEmpty(input, identifier);
         } catch (Exception cause) {
@@ -85,7 +85,7 @@ public class Validators {
         }
     }
 
-    public static <T> Set<T> notNullOrEmpty(final Set<T> input, final String identifier) {
+    public static <T> Set<T> notNullOrEmpty(final Set<T> input, final String identifier) throws InvalidArgumentException {
         if (input == null || input.isEmpty()) {
             throw InvalidArgumentException.fromMessage(identifier + " cannot be null or empty");
         }
@@ -93,7 +93,7 @@ public class Validators {
     }
 
     public static <T> Set<T> notNullOrEmpty(final Set<T> input, final String identifier,
-                                            final Supplier<ErrorContext> errorContext) {
+                                            final Supplier<ErrorContext> errorContext) throws InvalidArgumentException {
         try {
             return notNullOrEmpty(input, identifier);
         } catch (Exception cause) {

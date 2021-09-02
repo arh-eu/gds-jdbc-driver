@@ -8,7 +8,10 @@ import hu.gds.jdbc.types.JavaTypes;
 import hu.gds.jdbc.util.GdsConstants;
 import org.jetbrains.annotations.NotNull;
 
-import java.sql.*;
+import java.sql.ResultSet;
+import java.sql.ResultSetMetaData;
+import java.sql.SQLException;
+import java.sql.SQLFeatureNotSupportedException;
 import java.util.*;
 
 public class GdsResultSetMetaData implements ResultSetMetaData {
@@ -302,6 +305,10 @@ public class GdsResultSetMetaData implements ResultSetMetaData {
                 case BINARY_ARRAY:
                 case TEXT_ARRAY:
                 case STRING_MAP:
+                case GEO_DATA:
+                case GEO_DATA_ARRAY:
+                case DATE_TIME:
+                case DATE_TIME_ARRAY:
                     displaySize = Integer.MAX_VALUE;
                     break;
                 case BOOLEAN:
@@ -356,6 +363,10 @@ public class GdsResultSetMetaData implements ResultSetMetaData {
                 case BINARY_ARRAY:
                 case TEXT_ARRAY:
                 case STRING_MAP:
+                case GEO_DATA:
+                case GEO_DATA_ARRAY:
+                case DATE_TIME:
+                case DATE_TIME_ARRAY:
                     precision = Integer.MAX_VALUE;
                     break;
                 case BOOLEAN:

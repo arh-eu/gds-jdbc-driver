@@ -14,11 +14,7 @@ import java.security.KeyStore;
 import java.security.cert.CertificateException;
 import java.security.cert.CertificateFactory;
 import java.security.cert.X509Certificate;
-import java.util.Collections;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
+import java.util.*;
 import java.util.stream.Collectors;
 
 import static hu.gds.jdbc.util.Validators.notNull;
@@ -58,7 +54,7 @@ public class SecurityConfig {
      *
      * @return the default security config.
      */
-    public static SecurityConfig create() {
+    public static SecurityConfig create() throws InvalidArgumentException {
         return new SecurityConfig(builder());
     }
 
@@ -88,7 +84,7 @@ public class SecurityConfig {
      * @param certificates the list of certificates to load.
      * @return this {@link SecurityConfig.Builder} for chaining purposes.
      */
-    public static SecurityConfig.Builder trustCertificates(final List<X509Certificate> certificates) {
+    public static SecurityConfig.Builder trustCertificates(final List<X509Certificate> certificates) throws InvalidArgumentException {
         return builder().trustCertificates(certificates);
     }
 
@@ -98,7 +94,7 @@ public class SecurityConfig {
      * @param certificatePath the path to load the certificate from.
      * @return this {@link SecurityConfig.Builder} for chaining purposes.
      */
-    public static SecurityConfig.Builder trustCertificate(final Path certificatePath) {
+    public static SecurityConfig.Builder trustCertificate(final Path certificatePath) throws InvalidArgumentException {
         return builder().trustCertificate(certificatePath);
     }
 
@@ -108,20 +104,20 @@ public class SecurityConfig {
      * @param trustStore the loaded trust store to use.
      * @return this {@link SecurityConfig.Builder} for chaining purposes.
      */
-    public static SecurityConfig.Builder trustStore(final KeyStore trustStore) {
+    public static SecurityConfig.Builder trustStore(final KeyStore trustStore) throws InvalidArgumentException {
         return builder().trustStore(trustStore);
     }
 
     /**
      * Loads a trust store from a file path and password and initializes the {@link TrustManagerFactory}.
      *
-     * @param trustStorePath the path to the truststore.
+     * @param trustStorePath     the path to the truststore.
      * @param trustStorePassword the password (can be null if not password protected).
-     * @param trustStoreType the type of the trust store. If empty, the {@link KeyStore#getDefaultType()} will be used.
+     * @param trustStoreType     the type of the trust store. If empty, the {@link KeyStore#getDefaultType()} will be used.
      * @return this {@link SecurityConfig.Builder} for chaining purposes.
      */
     public static SecurityConfig.Builder trustStore(final Path trustStorePath, final String trustStorePassword,
-                                                                                  final Optional<String> trustStoreType) {
+                                                    final Optional<String> trustStoreType) throws InvalidArgumentException {
         return builder().trustStore(trustStorePath, trustStorePassword, trustStoreType);
     }
 
@@ -134,11 +130,11 @@ public class SecurityConfig {
      * @param trustManagerFactory the trust manager factory to use.
      * @return this {@link SecurityConfig.Builder} for chaining purposes.
      */
-    public static SecurityConfig.Builder trustManagerFactory(final TrustManagerFactory trustManagerFactory) {
+    public static SecurityConfig.Builder trustManagerFactory(final TrustManagerFactory trustManagerFactory) throws InvalidArgumentException {
         return builder().trustManagerFactory(trustManagerFactory);
     }
 
-    private SecurityConfig(final SecurityConfig.Builder builder) {
+    private SecurityConfig(final SecurityConfig.Builder builder) throws InvalidArgumentException {
         tlsEnabled = builder.tlsEnabled;
         nativeTlsEnabled = builder.nativeTlsEnabled;
         trustCertificates = builder.trustCertificates;
@@ -221,7 +217,7 @@ public class SecurityConfig {
          *
          * @return the built security config.
          */
-        public SecurityConfig build() {
+        public SecurityConfig build() throws InvalidArgumentException {
             return new SecurityConfig(this);
         }
 
@@ -253,7 +249,7 @@ public class SecurityConfig {
          * @param certificates the list of certificates to load.
          * @return this {@link SecurityConfig.Builder} for chaining purposes.
          */
-        public SecurityConfig.Builder trustCertificates(final List<X509Certificate> certificates) {
+        public SecurityConfig.Builder trustCertificates(final List<X509Certificate> certificates) throws InvalidArgumentException {
             this.trustCertificates = notNullOrEmpty(certificates, "X509 Certificates");
             return this;
         }
@@ -264,7 +260,7 @@ public class SecurityConfig {
          * @param certificatePath the path to load the certificate from.
          * @return this {@link SecurityConfig.Builder} for chaining purposes.
          */
-        public SecurityConfig.Builder trustCertificate(final Path certificatePath) {
+        public SecurityConfig.Builder trustCertificate(final Path certificatePath) throws InvalidArgumentException {
             notNull(certificatePath, "CertificatePath");
 
             final StringBuilder contentBuilder = new StringBuilder();
@@ -272,7 +268,7 @@ public class SecurityConfig {
                 Files.lines(certificatePath, StandardCharsets.UTF_8).forEach(s -> contentBuilder.append(s).append("\n"));
             } catch (IOException ex) {
                 throw InvalidArgumentException.fromMessage(
-                        "Could not read trust certificate from file \"" + certificatePath + "\"" ,
+                        "Could not read trust certificate from file \"" + certificatePath + "\"",
                         ex
                 );
             }
@@ -288,7 +284,7 @@ public class SecurityConfig {
          * @param trustManagerFactory the trust manager factory to use.
          * @return this {@link SecurityConfig.Builder} for chaining purposes.
          */
-        public SecurityConfig.Builder trustManagerFactory(final TrustManagerFactory trustManagerFactory) {
+        public SecurityConfig.Builder trustManagerFactory(final TrustManagerFactory trustManagerFactory) throws InvalidArgumentException {
             this.trustManagerFactory = notNull(trustManagerFactory, "TrustManagerFactory");
             return this;
         }
@@ -299,7 +295,7 @@ public class SecurityConfig {
          * @param trustStore the loaded trust store to use.
          * @return this {@link SecurityConfig.Builder} for chaining purposes.
          */
-        public SecurityConfig.Builder trustStore(final KeyStore trustStore) {
+        public SecurityConfig.Builder trustStore(final KeyStore trustStore) throws InvalidArgumentException {
             notNull(trustStore, "TrustStore");
 
             try {
@@ -317,13 +313,13 @@ public class SecurityConfig {
         /**
          * Loads a trust store from a file path and password and initializes the {@link TrustManagerFactory}.
          *
-         * @param trustStorePath the path to the truststore.
+         * @param trustStorePath     the path to the truststore.
          * @param trustStorePassword the password (can be null if not password protected).
-         * @param trustStoreType the type of the trust store. If empty, the {@link KeyStore#getDefaultType()} will be used.
+         * @param trustStoreType     the type of the trust store. If empty, the {@link KeyStore#getDefaultType()} will be used.
          * @return this {@link SecurityConfig.Builder} for chaining purposes.
          */
         public SecurityConfig.Builder trustStore(final Path trustStorePath, final String trustStorePassword,
-                                                                               final Optional<String> trustStoreType) {
+                                                 final Optional<String> trustStoreType) throws InvalidArgumentException {
             notNull(trustStorePath, "TrustStorePath");
             notNull(trustStoreType, "TrustStoreType");
 
@@ -347,7 +343,7 @@ public class SecurityConfig {
      * @param certificates the string-encoded certificates.
      * @return the decoded certs in x.509 format.
      */
-    public static List<X509Certificate> decodeCertificates(final List<String> certificates) {
+    public static List<X509Certificate> decodeCertificates(final List<String> certificates) throws InvalidArgumentException {
         notNull(certificates, "Certificates");
 
         final CertificateFactory cf;
@@ -363,7 +359,7 @@ public class SecurityConfig {
                         new ByteArrayInputStream(c.getBytes(StandardCharsets.UTF_8))
                 );
             } catch (CertificateException e) {
-                throw InvalidArgumentException.fromMessage("Could not generate certificate from raw input: \"" + c + "\"", e);
+                throw new RuntimeException(InvalidArgumentException.fromMessage("Could not generate certificate from raw input: \"" + c + "\"", e));
             }
         }).collect(Collectors.toList());
     }

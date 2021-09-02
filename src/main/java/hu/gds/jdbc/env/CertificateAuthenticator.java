@@ -1,7 +1,7 @@
 package hu.gds.jdbc.env;
 
-import io.netty.handler.ssl.SslContextBuilder;
 import hu.gds.jdbc.error.InvalidArgumentException;
+import io.netty.handler.ssl.SslContextBuilder;
 
 import javax.net.ssl.KeyManagerFactory;
 import java.nio.file.Files;
@@ -35,7 +35,7 @@ public class CertificateAuthenticator implements Authenticator {
      * @return the created {@link CertificateAuthenticator}.
      */
     public static CertificateAuthenticator fromKeyStore(final Path keyStorePath, final String keyStorePassword,
-                                                                                      final Optional<String> keyStoreType) {
+                                                                                      final Optional<String> keyStoreType) throws InvalidArgumentException {
         notNull(keyStorePath, "KeyStorePath");
         notNull(keyStoreType, "KeyStoreType");
 
@@ -58,7 +58,7 @@ public class CertificateAuthenticator implements Authenticator {
      * @param keyStorePassword the password for the key store.
      * @return the created {@link CertificateAuthenticator}.
      */
-    public static CertificateAuthenticator fromKeyStore(final KeyStore keyStore, final String keyStorePassword) {
+    public static CertificateAuthenticator fromKeyStore(final KeyStore keyStore, final String keyStorePassword) throws InvalidArgumentException {
         notNull(keyStore, "KeyStore");
 
         try {
@@ -79,7 +79,7 @@ public class CertificateAuthenticator implements Authenticator {
      * @param keyManagerFactory the key manager factory in a supplier that should be used.
      * @return the created {@link CertificateAuthenticator}.
      */
-    public static CertificateAuthenticator fromKeyManagerFactory(final Supplier<KeyManagerFactory> keyManagerFactory) {
+    public static CertificateAuthenticator fromKeyManagerFactory(final Supplier<KeyManagerFactory> keyManagerFactory) throws InvalidArgumentException {
         notNull(keyManagerFactory, "KeyManagerFactory");
         return new CertificateAuthenticator(null, null, null, keyManagerFactory);
     }
@@ -93,7 +93,7 @@ public class CertificateAuthenticator implements Authenticator {
      * @return the created {@link CertificateAuthenticator}.
      */
     public static CertificateAuthenticator fromKey(final PrivateKey key, final String keyPassword,
-                                                                                 final List<X509Certificate> keyCertChain) {
+                                                                                 final List<X509Certificate> keyCertChain) throws InvalidArgumentException {
         notNull(key, "PrivateKey");
         notNullOrEmpty(keyCertChain, "KeyCertChain");
         return new CertificateAuthenticator(key, keyPassword, keyCertChain, null);
@@ -101,7 +101,7 @@ public class CertificateAuthenticator implements Authenticator {
 
     private CertificateAuthenticator(final PrivateKey key, final String keyPassword,
                                      final List<X509Certificate> keyCertChain,
-                                     final Supplier<KeyManagerFactory> keyManagerFactory) {
+                                     final Supplier<KeyManagerFactory> keyManagerFactory) throws InvalidArgumentException {
         this.key = key;
         this.keyPassword = keyPassword;
         this.keyCertChain = keyCertChain;

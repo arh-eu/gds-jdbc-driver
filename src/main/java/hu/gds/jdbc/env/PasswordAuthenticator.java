@@ -1,5 +1,7 @@
 package hu.gds.jdbc.env;
 
+import hu.gds.jdbc.error.InvalidArgumentException;
+
 import java.util.function.Supplier;
 
 import static hu.gds.jdbc.util.Validators.notNull;
@@ -27,11 +29,11 @@ public class PasswordAuthenticator implements Authenticator {
      * @param password the password to use alognside the username.
      * @return the instantiated {@link PasswordAuthenticator}.
      */
-    public static PasswordAuthenticator create(final String username, final String password) {
+    public static PasswordAuthenticator create(final String username, final String password) throws InvalidArgumentException {
         return builder().username(username).password(password).build();
     }
 
-    private PasswordAuthenticator(final PasswordAuthenticator.Builder builder) {
+    private PasswordAuthenticator(final PasswordAuthenticator.Builder builder) throws InvalidArgumentException {
         this.username = notNull(builder.username, "username");
         this.password = notNull(builder.password, "password");
     }
@@ -50,7 +52,7 @@ public class PasswordAuthenticator implements Authenticator {
          * @param username the username to use.
          * @return this builder for chaining purposes.
          */
-        public PasswordAuthenticator.Builder username(final String username) {
+        public PasswordAuthenticator.Builder username(final String username) throws InvalidArgumentException {
             notNullOrEmpty(username, "Username");
             return username(new Supplier<String>() {
                 @Override
@@ -73,7 +75,7 @@ public class PasswordAuthenticator implements Authenticator {
          * @param username the username to use.
          * @return this builder for chaining purposes.
          */
-        public PasswordAuthenticator.Builder username(final Supplier<String> username) {
+        public PasswordAuthenticator.Builder username(final Supplier<String> username) throws InvalidArgumentException {
             notNull(username, "Username");
             this.username = username;
             return this;
@@ -85,7 +87,7 @@ public class PasswordAuthenticator implements Authenticator {
          * @param password the password to alongside for the username provided.
          * @return this builder for chaining purposes.
          */
-        public PasswordAuthenticator.Builder password(final String password) {
+        public PasswordAuthenticator.Builder password(final String password) throws InvalidArgumentException {
             notNullOrEmpty(password, "Password");
             return password(new Supplier<String>() {
                 @Override
@@ -108,7 +110,7 @@ public class PasswordAuthenticator implements Authenticator {
          * @param password the password to alongside for the username provided.
          * @return this builder for chaining purposes.
          */
-        public PasswordAuthenticator.Builder password(final Supplier<String> password) {
+        public PasswordAuthenticator.Builder password(final Supplier<String> password) throws InvalidArgumentException {
             notNull(password, "Password");
             this.password = password;
             return this;
@@ -119,7 +121,7 @@ public class PasswordAuthenticator implements Authenticator {
          *
          * @return the created password authenticator instance.
          */
-        public PasswordAuthenticator build() {
+        public PasswordAuthenticator build() throws InvalidArgumentException {
             return new PasswordAuthenticator(this);
         }
     }
