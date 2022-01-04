@@ -2,19 +2,22 @@ package hu.gds.jdbc;
 
 import hu.arheu.gds.message.data.MessageData6AttachmentResponse;
 import hu.arheu.gds.message.data.impl.AttachmentResultHolderImpl;
+import hu.arheu.gds.message.errors.ValidationException;
 import hu.arheu.gds.message.util.MessageManager;
-import hu.arheu.gds.message.util.ValidationException;
+import hu.gds.jdbc.util.GdsConstants;
 import net.sf.jsqlparser.JSQLParserException;
-import net.sf.jsqlparser.expression.*;
-import net.sf.jsqlparser.expression.operators.relational.*;
+import net.sf.jsqlparser.expression.Expression;
+import net.sf.jsqlparser.expression.HexValue;
+import net.sf.jsqlparser.expression.LongValue;
+import net.sf.jsqlparser.expression.StringValue;
+import net.sf.jsqlparser.expression.operators.relational.ExpressionList;
+import net.sf.jsqlparser.expression.operators.relational.ItemsList;
 import net.sf.jsqlparser.parser.CCJSqlParserUtil;
 import net.sf.jsqlparser.schema.Column;
 import net.sf.jsqlparser.schema.Table;
 import net.sf.jsqlparser.statement.Statements;
 import net.sf.jsqlparser.statement.insert.Insert;
-import hu.gds.jdbc.util.GdsConstants;
 
-import java.io.IOException;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -25,7 +28,7 @@ public class AttachmentInsertConverter {
     private static final String TTL_FIELD_NAME = "ttl";
 
     public static MessageData6AttachmentResponse getMessageData6AttachmentResponse(String sql)
-            throws SQLException, IOException, ValidationException, JSQLParserException {
+            throws SQLException, ValidationException, JSQLParserException {
 
         Statements statements = CCJSqlParserUtil.parseStatements(sql);
         net.sf.jsqlparser.statement.Statement statement = statements.getStatements().get(0);

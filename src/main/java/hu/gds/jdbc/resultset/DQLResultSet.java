@@ -100,20 +100,20 @@ public class DQLResultSet extends AbstractGdsResultSet {
 
         MessageData data;
         if (attachmentDQL) {
-            data = new MessageData4AttachmentRequestImpl(false, sql);
+            data = new MessageData4AttachmentRequestImpl(sql);
             GdsConnection.OneTimeSyncTransactionExecutor executor =
                     gdsJdbcConnection.getGdsConnection().getNewExecutor(data, queryId, timeout);
             attachmentResponse = executor.executeAndGetAttachmentQueryResult();
-            if (attachmentResponse.getTypeHelper().isAttachmentRequestAckMessageData5()) {
+            if (attachmentResponse.isAttachmentRequestAckMessageData5()) {
                 MessageData5AttachmentRequestAck ack =
-                        attachmentResponse.getTypeHelper().asAttachmentRequestAckMessageData5();
+                        attachmentResponse.asAttachmentRequestAckMessageData5();
                 if (!AckStatus.OK.equals(ack.getGlobalStatus())) {
                     throw new GdsException("The query response is not ok: " + ack.getGlobalStatus());
                 }
                 attachmentResultHolder = ack.getData().getResult();
             } else {
                 MessageData6AttachmentResponse data6AttachmentResponse =
-                        attachmentResponse.getTypeHelper().asAttachmentResponseMessageData6();
+                        attachmentResponse.asAttachmentResponseMessageData6();
                 attachmentResultHolder = data6AttachmentResponse.getResult();
             }
             List<ColumnMetaData> metaDataList = new ArrayList<>();
@@ -124,7 +124,7 @@ public class DQLResultSet extends AbstractGdsResultSet {
             }
             metaData = new GdsResultSetMetaData(metaDataList, tableName, gdsJdbcConnection);
         } else {
-            data = new MessageData10QueryRequestImpl(false,
+            data = new MessageData10QueryRequestImpl(
                     sql,
                     consistencyType,
                     timeout,
@@ -331,10 +331,7 @@ public class DQLResultSet extends AbstractGdsResultSet {
 
     private MessageData11QueryRequestAck makeNextQuery(QueryContextHolder queryContextHolder) throws Throwable {
         String queryId = UUID.randomUUID().toString();
-        MessageData12NextQueryPageImpl data =
-                new MessageData12NextQueryPageImpl(false,
-                        queryContextHolder,
-                        timeout);
+        MessageData12NextQueryPageImpl data = new MessageData12NextQueryPageImpl(queryContextHolder, timeout);
         GdsConnection.OneTimeSyncTransactionExecutor executor = gdsJdbcConnection.getGdsConnection().getNewExecutor(data, queryId, timeout);
         return executor.executeAndGetQueryResult();
     }

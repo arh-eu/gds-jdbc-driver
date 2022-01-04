@@ -305,8 +305,10 @@ public class GdsResultSetMetaData implements ResultSetMetaData {
                 case BINARY_ARRAY:
                 case TEXT_ARRAY:
                 case STRING_MAP:
-                case GEO_DATA:
-                case GEO_DATA_ARRAY:
+                case GEO_POINT:
+                case GEO_POINT_ARRAY:
+                case GEO_SHAPE:
+                case GEO_SHAPE_ARRAY:
                 case DATE_TIME:
                 case DATE_TIME_ARRAY:
                     displaySize = Integer.MAX_VALUE;
@@ -363,8 +365,10 @@ public class GdsResultSetMetaData implements ResultSetMetaData {
                 case BINARY_ARRAY:
                 case TEXT_ARRAY:
                 case STRING_MAP:
-                case GEO_DATA:
-                case GEO_DATA_ARRAY:
+                case GEO_POINT:
+                case GEO_POINT_ARRAY:
+                case GEO_SHAPE:
+                case GEO_SHAPE_ARRAY:
                 case DATE_TIME:
                 case DATE_TIME_ARRAY:
                     precision = Integer.MAX_VALUE;

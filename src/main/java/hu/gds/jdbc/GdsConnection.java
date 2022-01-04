@@ -60,7 +60,7 @@ public class GdsConnection {
          * @return The query result for 10 and 12 query request
          */
         public MessageData11QueryRequestAck executeAndGetQueryResult() throws Throwable {
-            return getResult().getTypeHelper().asQueryRequestAckMessageData11();
+            return getResult().asQueryRequestAckMessageData11();
         }
 
         /**
@@ -69,11 +69,11 @@ public class GdsConnection {
          * @return The DML result for 2 event request
          */
         public MessageData3EventAck executeAndGetDmlResult() throws Throwable {
-            return getResult().getTypeHelper().asEventAckMessageData3();
+            return getResult().asEventAckMessageData3();
         }
 
         public MessageData7AttachmentResponseAck executeAndGetOrphanAttachmentInsertResult() throws Throwable {
-            return getResult().getTypeHelper().asAttachmentResponseAckMessageData7();
+            return getResult().asAttachmentResponseAckMessageData7();
         }
 
         private MessageData getResult() throws Throwable {
@@ -121,10 +121,7 @@ public class GdsConnection {
                 AttachmentResponseAckResultHolder resultHolder =
                         new AttachmentResponseAckResultHolderImpl(AckStatus.OK, attachmentResultHolder);
                 MessageData7AttachmentResponseAckImpl responseAck =
-                        new MessageData7AttachmentResponseAckImpl(false,
-                                AckStatus.OK,
-                                resultHolder,
-                                null);
+                        new MessageData7AttachmentResponseAckImpl(AckStatus.OK, resultHolder, null);
                 client.sendAttachmentResponseAck7(requestIdToWaitFor, responseAck);
                 setResult(data);
             } catch (Throwable ex) {
@@ -133,10 +130,10 @@ public class GdsConnection {
         }
 
         private void messageReceived(MessageHeader header, MessageData data) {
-            MessageHeaderBase headerBase = header.getTypeHelper().asBaseMessageHeader();
-            if (data.getTypeHelper().isAttachmentResponseMessageData6()) {
+            MessageHeaderBase headerBase = header.asBaseMessageHeader();
+            if (data.isAttachmentResponseMessageData6()) {
                 MessageData6AttachmentResponse attachmentResponse =
-                        data.getTypeHelper().asAttachmentResponseMessageData6();
+                        data.asAttachmentResponseMessageData6();
                 /*
                     By type 6 the result request ids maybe contains the responses!
                  */
@@ -149,9 +146,9 @@ public class GdsConnection {
                 /*
                     By type 5 message, the message contains the request id
                  */
-                if (data.getTypeHelper().isAttachmentRequestAckMessageData5()) {
+                if (data.isAttachmentRequestAckMessageData5()) {
                     MessageData5AttachmentRequestAck attachmentRequestAck =
-                            data.getTypeHelper().asAttachmentRequestAckMessageData5();
+                            data.asAttachmentRequestAckMessageData5();
                     if (!AckStatus.OK.equals(attachmentRequestAck.getGlobalStatus())) {
                         setResult(data);
                     } else if (null != attachmentRequestAck.getData().getResult().getAttachment()) {

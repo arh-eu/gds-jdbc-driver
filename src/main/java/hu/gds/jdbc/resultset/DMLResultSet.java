@@ -67,7 +67,7 @@ public class DMLResultSet extends AbstractGdsResultSet {
             resultSetIterator = resultSets.iterator();
             nextDMLResultSet();
         } else {
-            data = new MessageData2EventImpl(false, sql, attachments, new ArrayList<>());
+            data = new MessageData2EventImpl(sql, attachments, Collections.emptyList());
             GdsConnection.OneTimeSyncTransactionExecutor executor =
                     gdsJdbcConnection.getGdsConnection().getNewExecutor(data, queryId, QUERY_TIMEOUT_DEFAULT);
             MessageData3EventAck dmlResponse = executor.executeAndGetDmlResult();

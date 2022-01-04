@@ -1102,7 +1102,7 @@ public class GdsDatabaseMetaData implements DatabaseMetaData {
             GDSHolder gdsHolder = new GDSHolderImpl("", "");
             QueryContextHolder queryContextHolder = new QueryContextHolderImpl("", "", (long) rows.size(), 0L, ConsistencyType.NONE, "", gdsHolder, new ArrayList<>(), new ArrayList<>());
             QueryResponseHolder queryResponseHolder = new QueryResponseHolderImpl((long) rows.size(), 0L, false, queryContextHolder, fieldHolderList, rows);
-            return new MessageData11QueryRequestAckImpl(false, AckStatus.OK, queryResponseHolder, null);
+            return new MessageData11QueryRequestAckImpl(AckStatus.OK, queryResponseHolder, null);
         } catch (Throwable ex) {
             throw new RuntimeException(ex);
         }
