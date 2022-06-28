@@ -36,7 +36,7 @@ public class StringEscapeUtils {
 
         do {
             if (!matcher.find()) {
-                matcher = Pattern.compile("[\\\\](')(\\1*)").matcher(value);
+                matcher = Pattern.compile("\\\\(')(\\1*)").matcher(value);
 
                 do {
                     if (!matcher.find()) {

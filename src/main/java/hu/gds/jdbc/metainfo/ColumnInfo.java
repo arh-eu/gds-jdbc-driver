@@ -38,34 +38,20 @@ public class ColumnInfo {
     }
 
     public int getSqlType() {
-        switch (column.getFieldType()) {
-            case KEYWORD:
-                return Types.VARCHAR;
-            case KEYWORD_ARRAY:
-            case DOUBLE_ARRAY:
-            case INTEGER_ARRAY:
-            case BINARY_ARRAY:
-            case TEXT_ARRAY:
-            case BOOLEAN_ARRAY:
-            case LONG_ARRAY:
-                return Types.ARRAY;
-            case TEXT:
-                return Types.LONGVARCHAR;
-            case BOOLEAN:
-                return Types.BOOLEAN;
-            case DOUBLE:
-                return Types.DOUBLE;
-            case INTEGER:
-                return Types.INTEGER;
-            case LONG:
-                return Types.BIGINT;
-            case BINARY:
-                return Types.BINARY;
-            case STRING_MAP:
-                throw new RuntimeException("Unsupported type: " + column.getFieldType());
-            default:
-                throw new RuntimeException("Unknown or not implemented gds type found: " + column.getFieldType());
-        }
+        return switch (column.getFieldType()) {
+            case KEYWORD -> Types.VARCHAR;
+            case KEYWORD_ARRAY, DOUBLE_ARRAY, INTEGER_ARRAY, BINARY_ARRAY, TEXT_ARRAY, BOOLEAN_ARRAY, LONG_ARRAY ->
+                    Types.ARRAY;
+            case TEXT -> Types.LONGVARCHAR;
+            case BOOLEAN -> Types.BOOLEAN;
+            case DOUBLE -> Types.DOUBLE;
+            case INTEGER -> Types.INTEGER;
+            case LONG -> Types.BIGINT;
+            case BINARY -> Types.BINARY;
+            case STRING_MAP -> throw new RuntimeException("Unsupported type: " + column.getFieldType());
+            default ->
+                    throw new RuntimeException("Unknown or not implemented gds type found: " + column.getFieldType());
+        };
     }
 
     @Override

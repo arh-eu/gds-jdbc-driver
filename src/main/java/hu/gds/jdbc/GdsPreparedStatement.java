@@ -153,14 +153,13 @@ public class GdsPreparedStatement extends GdsBaseStatement implements PreparedSt
                 setInt(parameterIndex, (Integer) value);
             else if (value instanceof Long)
                 setLong(parameterIndex, (Long) value);
-            else if (value instanceof BigDecimal) {
-                BigDecimal bigDecimal = (BigDecimal) value;
+            else if (value instanceof BigDecimal bigDecimal) {
                 if (bigDecimal.compareTo(BigDecimal.valueOf(Long.MAX_VALUE)) <= 0 &&
                         bigDecimal.compareTo(BigDecimal.valueOf(Long.MIN_VALUE)) >= 0) {
                     setLong(parameterIndex, bigDecimal.longValue());
                 } else {
                     throw new TypeMismatchException("BigDecimal number is out of range for long values." +
-                            "(" + value.toString() + ")");
+                            "(" + value + ")");
                 }
             } else if (value instanceof Float)
                 setFloat(parameterIndex, (Float) value);
@@ -341,7 +340,7 @@ public class GdsPreparedStatement extends GdsBaseStatement implements PreparedSt
         if (null == x) {
             setNull(parameterIndex, Types.DATE);
         } else {
-            set(parameterIndex, "'" + new java.sql.Date(x.getTime()).toString() + "'", Types.DATE);
+            set(parameterIndex, "'" + new Date(x.getTime()) + "'", Types.DATE);
         }
     }
 
@@ -350,7 +349,7 @@ public class GdsPreparedStatement extends GdsBaseStatement implements PreparedSt
         if (null == x) {
             setNull(parameterIndex, Types.TIME);
         } else {
-            set(parameterIndex, "{t '" + x.toString() + "'}", Types.TIME);
+            set(parameterIndex, "{t '" + x + "'}", Types.TIME);
         }
     }
 
@@ -362,9 +361,9 @@ public class GdsPreparedStatement extends GdsBaseStatement implements PreparedSt
             // Be careful don't use instanceof here since it would match derived
             // classes.
             if (x.getClass().equals(Timestamp.class))
-                set(parameterIndex, "'" + x.toString() + "'", Types.TIMESTAMP);
+                set(parameterIndex, "'" + x + "'", Types.TIMESTAMP);
             else
-                set(parameterIndex, "'" + new Timestamp(x.getTime()).toString() + "'", Types.TIMESTAMP);
+                set(parameterIndex, "'" + new Timestamp(x.getTime()) + "'", Types.TIMESTAMP);
         }
     }
 
@@ -642,57 +641,21 @@ public class GdsPreparedStatement extends GdsBaseStatement implements PreparedSt
             setNull(parameterIndex, targetSqlType);
         } else {
             switch (targetSqlType) {
-                case Types.TINYINT:
-                case Types.SMALLINT:
-                case Types.INTEGER:
-                    setInt(parameterIndex, ((Number) x).intValue());
-                    break;
-                case Types.BIGINT:
-                    setLong(parameterIndex, ((Number) x).longValue());
-                    break;
-                case Types.REAL:
-                case Types.FLOAT:
-                case Types.DOUBLE:
-                case Types.DECIMAL:
-                case Types.NUMERIC:
+                case Types.TINYINT, Types.SMALLINT, Types.INTEGER -> setInt(parameterIndex, ((Number) x).intValue());
+                case Types.BIGINT -> setLong(parameterIndex, ((Number) x).longValue());
+                case Types.REAL, Types.FLOAT, Types.DOUBLE, Types.DECIMAL, Types.NUMERIC ->
                     // Cast to Number is not necessary
-                    set(parameterIndex, x.toString(), targetSqlType);
-                    break;
-                case Types.BIT:
-                case Types.BOOLEAN:
-                    setBoolean(parameterIndex, (Boolean) x);
-                    break;
-                case Types.CHAR:
-                case Types.VARCHAR:
-                case Types.LONGVARCHAR:
-                    setString(parameterIndex, (String) x);
-                    break;
-                case Types.BINARY:
-                case Types.VARBINARY:
-                case Types.LONGVARBINARY:
-                    setBytes(parameterIndex, (byte[]) x);
-                    break;
-                case Types.DATE:
-                    setDate(parameterIndex, (java.sql.Date) x);
-                    break;
-                case Types.TIME:
-                    setTime(parameterIndex, (Time) x);
-                    break;
-                case Types.TIMESTAMP:
-                    setTimestamp(parameterIndex, (Timestamp) x);
-                    break;
-                case Types.BLOB:
-                    setBlob(parameterIndex, (Blob) x);
-                    break;
-                case Types.DATALINK:
-                    setURL(parameterIndex, (java.net.URL) x);
-                    break;
-                case Types.JAVA_OBJECT:
-                case Types.OTHER:
-                    setObject(parameterIndex, x);
-                    break;
-                default:
-                    throw new TypeMismatchException("Unsupported type value: " + targetSqlType);
+                        set(parameterIndex, x.toString(), targetSqlType);
+                case Types.BIT, Types.BOOLEAN -> setBoolean(parameterIndex, (Boolean) x);
+                case Types.CHAR, Types.VARCHAR, Types.LONGVARCHAR -> setString(parameterIndex, (String) x);
+                case Types.BINARY, Types.VARBINARY, Types.LONGVARBINARY -> setBytes(parameterIndex, (byte[]) x);
+                case Types.DATE -> setDate(parameterIndex, (Date) x);
+                case Types.TIME -> setTime(parameterIndex, (Time) x);
+                case Types.TIMESTAMP -> setTimestamp(parameterIndex, (Timestamp) x);
+                case Types.BLOB -> setBlob(parameterIndex, (Blob) x);
+                case Types.DATALINK -> setURL(parameterIndex, (URL) x);
+                case Types.JAVA_OBJECT, Types.OTHER -> setObject(parameterIndex, x);
+                default -> throw new TypeMismatchException("Unsupported type value: " + targetSqlType);
             }
         }
     }

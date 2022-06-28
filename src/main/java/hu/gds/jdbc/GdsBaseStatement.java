@@ -125,11 +125,10 @@ public abstract class GdsBaseStatement implements Statement {
             for (int i = 0; i < statementsCounter; i++) {
                 net.sf.jsqlparser.statement.Statement statement = statements.getStatements().get(i);
                 String table;
-                if (statement instanceof Insert) {
+                if (statement instanceof Insert insert) {
                     if (dqlFound) {
                         throw new SQLException("In sql statement not allowed to use SELECT and DML (INSERT, UPDATE, MERGE) statements.");
                     }
-                    Insert insert = (Insert) statement;
                     table = insert.getTable().getName();
                     if (null != table && table.endsWith(GdsConstants.ATTACHMENT_TABLE_SUFFIX)) {
                         if (null == attachments) {
@@ -174,13 +173,12 @@ public abstract class GdsBaseStatement implements Statement {
                         }
                     });
                     dmlFound = true;
-                } else if (statement instanceof Update) {
+                } else if (statement instanceof Update update) {
                     if (dqlFound) {
                         throw new SQLException("In sql statement not allowed to use SELECT and DML (INSERT, UPDATE, MERGE) statements.");
                     }
                     onlyAttachmentDML = false;
                     dmlFound = true;
-                    Update update = (Update) statement;
                     Table updateTable = update.getTable();
                     updateTable.setAlias(null);
                     List<Column> columns = update.getColumns();
@@ -226,7 +224,7 @@ public abstract class GdsBaseStatement implements Statement {
                     }
                     onlyAttachmentDML = false;
                     dmlFound = true;
-                } else if (statement instanceof Select) {
+                } else if (statement instanceof Select select) {
                     if (singleDmlOrDdlStatement) {
                         throw new SQLException("Select statement found! Not a dml or ddl single statement!");
                     }
@@ -238,7 +236,6 @@ public abstract class GdsBaseStatement implements Statement {
                         throw new SQLException("In sql statement not allowed to use SELECT and DML (INSERT, UPDATE, MERGE) statements.");
                     }
                     onlyAttachmentDML = false;
-                    Select select = (Select) statement;
                     final String[] tempTable = new String[1];
                     select.getSelectBody().accept(new SelectDeParser() {
 

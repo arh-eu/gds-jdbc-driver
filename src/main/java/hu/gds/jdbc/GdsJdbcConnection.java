@@ -102,12 +102,14 @@ public class GdsJdbcConnection implements Connection {
         checkClosed();
         // Since the only valid value for MongDB is Connection.TRANSACTION_NONE, and the javadoc for this method
         // indicates that this is not a valid value for level here, throw unsupported operation exception.
-        throw new UnsupportedOperationException("GDS provides no support for transactions.");
+        if (level != Connection.TRANSACTION_READ_COMMITTED) {
+            throw new UnsupportedOperationException("GDS only supports dirty read (READ_COMMITTED) during transactions!");
+        }
     }
 
     public int getTransactionIsolation() throws SQLException {
         checkClosed();
-        return Connection.TRANSACTION_NONE;
+        return Connection.TRANSACTION_READ_UNCOMMITTED;
     }
 
     public SQLWarning getWarnings() throws SQLException {

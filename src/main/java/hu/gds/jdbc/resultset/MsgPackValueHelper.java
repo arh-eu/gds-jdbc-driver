@@ -3,11 +3,15 @@ package hu.gds.jdbc.resultset;
 import hu.gds.jdbc.error.TypeMismatchException;
 import hu.gds.jdbc.types.ArrayImpl;
 import hu.gds.jdbc.types.JavaTypes;
-import org.msgpack.value.*;
+import org.msgpack.value.NumberValue;
+import org.msgpack.value.Value;
 import org.msgpack.value.impl.ImmutableLongValueImpl;
 
-import java.sql.*;
-import java.util.*;
+import java.sql.Array;
+import java.sql.SQLException;
+import java.sql.Timestamp;
+import java.util.ArrayList;
+import java.util.List;
 
 class MsgPackValueHelper {
     private static boolean isNull(Value value) {
@@ -55,27 +59,15 @@ class MsgPackValueHelper {
         } else {
             throw new TypeMismatchException("Cannot convert the column of type " + value.getValueType().name() + " to " + targetType + ".");
         }
-        boolean isFit;
-        switch (targetType) {
-            case LONG:
-            case DOUBLE:
-                isFit = true;
-                break;
-            case BYTE:
-                isFit = isFitToByte(numberValue.toLong());
-                break;
-            case SHORT:
-                isFit = isFitToShort(numberValue.toLong());
-                break;
-            case INTEGER:
-                isFit = isFitToInt(numberValue.toLong());
-                break;
-            case FLOAT:
-                isFit = isFitToFloat(numberValue.toDouble());
-                break;
-            default:
-                throw new TypeMismatchException("Cannot convert the column of type " + value.getValueType().name() + " to " + targetType + ".");
-        }
+        boolean isFit = switch (targetType) {
+            case LONG, DOUBLE -> true;
+            case BYTE -> isFitToByte(numberValue.toLong());
+            case SHORT -> isFitToShort(numberValue.toLong());
+            case INTEGER -> isFitToInt(numberValue.toLong());
+            case FLOAT -> isFitToFloat(numberValue.toDouble());
+            default ->
+                    throw new TypeMismatchException("Cannot convert the column of type " + value.getValueType().name() + " to " + targetType + ".");
+        };
         if (!isFit) {
             throw new TypeMismatchException("Cannot convert the value " + value.toString() + " to " + targetType);
         }
@@ -148,16 +140,12 @@ class MsgPackValueHelper {
     }
 
     private static Object getObjectFromNumberValue(NumberValue value, JavaTypes typeName) throws SQLException {
-        switch (typeName) {
-            case INTEGER:
-                return value.toInt();
-            case LONG:
-                return value.toLong();
-            case DOUBLE:
-                return value.toDouble();
-            default:
-                throw new TypeMismatchException("Unknown value type found: " + typeName);
-        }
+        return switch (typeName) {
+            case INTEGER -> value.toInt();
+            case LONG -> value.toLong();
+            case DOUBLE -> value.toDouble();
+            default -> throw new TypeMismatchException("Unknown value type found: " + typeName);
+        };
     }
 
     static Object getObjectFromValue(Value value, JavaTypes typeName, JavaTypes subTypeName) throws SQLException {

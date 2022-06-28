@@ -7,8 +7,7 @@ public class ObjectToValueConverter {
 
     public static Value convert(Object object) throws Exception {
 
-        if (object instanceof Object[]) {
-            Object[] objects = (Object[]) object;
+        if (object instanceof Object[] objects) {
             Value[] values = new Value[objects.length];
             for (int i = 0; i < objects.length; ++i) {
                 values[i] = convert(objects[i]);

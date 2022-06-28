@@ -102,23 +102,13 @@ public class AttachmentInsertConverter {
         for (int i = 0; i < columns.size(); i++) {
             String columnName = columns.get(i).getColumnName();
             switch (columnName) {
-                case GdsConstants.META_FIELD:
-                    columnIndexMapping.put(GdsConstants.META_FIELD, i);
-                    break;
-                case TTL_FIELD_NAME:
-                    columnIndexMapping.put(TTL_FIELD_NAME, i);
-                    break;
-                case GdsConstants.OWNER_ID_FIELD:
-                    columnIndexMapping.put(GdsConstants.OWNER_ID_FIELD, i);
-                    break;
-                case GdsConstants.DATA_FIELD:
-                    columnIndexMapping.put(GdsConstants.DATA_FIELD, i);
-                    break;
-                case GdsConstants.ID_FIELD:
-                    columnIndexMapping.put(GdsConstants.ID_FIELD, i);
-                    break;
-                default:
-                    throw new SQLException("Unknown column name found in orphan attachment insert: " + columnName, insert.toString(), -1);
+                case GdsConstants.META_FIELD -> columnIndexMapping.put(GdsConstants.META_FIELD, i);
+                case TTL_FIELD_NAME -> columnIndexMapping.put(TTL_FIELD_NAME, i);
+                case GdsConstants.OWNER_ID_FIELD -> columnIndexMapping.put(GdsConstants.OWNER_ID_FIELD, i);
+                case GdsConstants.DATA_FIELD -> columnIndexMapping.put(GdsConstants.DATA_FIELD, i);
+                case GdsConstants.ID_FIELD -> columnIndexMapping.put(GdsConstants.ID_FIELD, i);
+                default ->
+                        throw new SQLException("Unknown column name found in orphan attachment insert: " + columnName, insert.toString(), -1);
             }
         }
         return columnIndexMapping;

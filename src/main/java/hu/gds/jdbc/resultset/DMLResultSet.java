@@ -131,7 +131,7 @@ public class DMLResultSet extends AbstractGdsResultSet {
     public void nextDMLResultSet() throws SQLException {
         try {
             this.currentResultSetWrapper = resultSetIterator.next();
-            this.currentResultSet = currentResultSetWrapper.getResultSet().asDmlResultSet();
+            this.currentResultSet = currentResultSetWrapper.resultSet().asDmlResultSet();
         } catch (Throwable e) {
             throw new SQLException(e);
         }

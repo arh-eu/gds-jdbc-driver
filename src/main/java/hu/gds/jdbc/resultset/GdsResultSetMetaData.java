@@ -294,55 +294,30 @@ public class GdsResultSetMetaData implements ResultSetMetaData {
         }
 
         public static int getDisplaySize(FieldValueType gdsType) {
-            int displaySize = 0;
-            switch (gdsType) {
-                case KEYWORD:
-                case KEYWORD_ARRAY:
-                    displaySize = 32768;
-                    break;
-                case TEXT:
-                case BINARY:
-                case BINARY_ARRAY:
-                case TEXT_ARRAY:
-                case STRING_MAP:
-                case GEO_POINT:
-                case GEO_POINT_ARRAY:
-                case GEO_SHAPE:
-                case GEO_SHAPE_ARRAY:
-                case DATE_TIME:
-                case DATE_TIME_ARRAY:
-                    displaySize = Integer.MAX_VALUE;
-                    break;
-                case BOOLEAN:
-                case BOOLEAN_ARRAY:
-                    displaySize = 5; //FALSE
-                    break;
-                case DOUBLE:
-                case DOUBLE_ARRAY:
+            return switch (gdsType) {
+                case KEYWORD, KEYWORD_ARRAY -> 32768;
+                case TEXT, BINARY, BINARY_ARRAY, TEXT_ARRAY, STRING_MAP, GEO_POINT, GEO_POINT_ARRAY, GEO_SHAPE, GEO_SHAPE_ARRAY, DATE_TIME, DATE_TIME_ARRAY ->
+                        Integer.MAX_VALUE;
+                case BOOLEAN, BOOLEAN_ARRAY -> 5; //FALSE
+                case DOUBLE, DOUBLE_ARRAY ->
                     /*
                      * The maximum display size of a double.
                      * Example: -3.3333333333333334E-100
                      */
-                    displaySize = 24;
-                    break;
-                case INTEGER:
-                case INTEGER_ARRAY:
+                        24;
+                case INTEGER, INTEGER_ARRAY ->
                     /*
                      * The maximum display size of an int.
                      * Example: -2147483648
                      */
-                    displaySize = 11;
-                    break;
-                case LONG:
-                case LONG_ARRAY:
+                        11;
+                case LONG, LONG_ARRAY ->
                     /*
                      * The maximum display size of a long.
                      * Example: 9223372036854775808
                      */
-                    displaySize = 20;
-                    break;
-            }
-            return displaySize;
+                        20;
+            };
         }
 
         public static int getScale(FieldValueType gdsType) {
@@ -354,59 +329,23 @@ public class GdsResultSetMetaData implements ResultSetMetaData {
         }
 
         public static int getPrecision(FieldValueType gdsType) {
-            int precision;
-            switch (gdsType) {
-                case KEYWORD:
-                case KEYWORD_ARRAY:
-                    precision = 32768;
-                    break;
-                case TEXT:
-                case BINARY:
-                case BINARY_ARRAY:
-                case TEXT_ARRAY:
-                case STRING_MAP:
-                case GEO_POINT:
-                case GEO_POINT_ARRAY:
-                case GEO_SHAPE:
-                case GEO_SHAPE_ARRAY:
-                case DATE_TIME:
-                case DATE_TIME_ARRAY:
-                    precision = Integer.MAX_VALUE;
-                    break;
-                case BOOLEAN:
-                case BOOLEAN_ARRAY:
-                    precision = 5; //FALSE
-                    break;
-                case DOUBLE:
-                case DOUBLE_ARRAY:
-                    precision = 17;
-                    break;
-                case INTEGER:
-                case INTEGER_ARRAY:
-                    precision = 10;
-                    break;
-                case LONG:
-                case LONG_ARRAY:
-                    precision = 19;
-                    break;
-                default:
-                    precision = NOT_APPLICABLE_PRECISION;
-            }
-            return precision;
+            return switch (gdsType) {
+                case KEYWORD, KEYWORD_ARRAY -> 32768;
+                case TEXT, BINARY, BINARY_ARRAY, TEXT_ARRAY, STRING_MAP, GEO_POINT, GEO_POINT_ARRAY, GEO_SHAPE, GEO_SHAPE_ARRAY, DATE_TIME, DATE_TIME_ARRAY ->
+                        Integer.MAX_VALUE;
+                case BOOLEAN, BOOLEAN_ARRAY -> 5; //FALSE
+                case DOUBLE, DOUBLE_ARRAY -> 17;
+                case INTEGER, INTEGER_ARRAY -> 10;
+                case LONG, LONG_ARRAY -> 19;
+                default -> NOT_APPLICABLE_PRECISION;
+            };
         }
 
         public static boolean isSigned(FieldValueType gdsType) {
-            switch (gdsType) {
-                case DOUBLE:
-                case DOUBLE_ARRAY:
-                case INTEGER:
-                case INTEGER_ARRAY:
-                case LONG:
-                case LONG_ARRAY:
-                    return true;
-                default:
-                    return false;
-            }
+            return switch (gdsType) {
+                case DOUBLE, DOUBLE_ARRAY, INTEGER, INTEGER_ARRAY, LONG, LONG_ARRAY -> true;
+                default -> false;
+            };
         }
 
         public JavaTypes getJavaType() {

@@ -1,10 +1,10 @@
 # GDS JDBC Driver
 
-The GDS JDBC Driver allows a connection towards a GDS instance for Java programs without having to bother with the database (GDS) specific codes. The communication uses the [GDS Java SDK](http://github.com/arh-eu/gds-java-sdk) `v2.2.0` and the [JSQLParser](https://github.com/JSQLParser/JSqlParser/) `v4.1` behind the scenes.
+The GDS JDBC Driver allows a connection towards a GDS instance for Java programs without having to bother with the database (GDS) specific codes. The communication uses the [GDS Java SDK](http://github.com/arh-eu/gds-java-sdk) `v3.0.0` and the [JSQLParser](https://github.com/JSQLParser/JSqlParser/) `v4.4` behind the scenes.
 
 ## System requirements
 
-The driver is compatible with the GDS 5 system, and needs Java 8 or newer to work.
+The driver is compatible with the GDS 5 system, and needs Java 17 or newer to work.
 
 ## Installation
 

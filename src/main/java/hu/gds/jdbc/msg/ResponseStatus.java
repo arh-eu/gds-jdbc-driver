@@ -1,7 +1,7 @@
 package hu.gds.jdbc.msg;
 
 /**
- * The {@link com.couchbase.client.core.msg.ResponseStatus} describes what kind of response came back for a specific
+ * The {@link ResponseStatus} describes what kind of response came back for a specific
  * request.
  *
  * <p>Note that this status is not tied to any protocol or service, rather there must

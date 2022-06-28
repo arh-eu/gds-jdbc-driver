@@ -192,31 +192,27 @@ public class DQLResultSet extends AbstractGdsResultSet {
         for (Map.Entry<String, Integer> entry : fieldsIndexMap.entrySet()) {
             String attachmentField = entry.getKey();
             switch (attachmentField) {
-                case GdsConstants.ID_FIELD:
-                    currentRow.add(new ImmutableStringValueImpl(attachmentResultHolder.getAttachmentId()));
-                    break;
-                case GdsConstants.META_FIELD:
+                case GdsConstants.ID_FIELD ->
+                        currentRow.add(new ImmutableStringValueImpl(attachmentResultHolder.getAttachmentId()));
+                case GdsConstants.META_FIELD -> {
                     String meta = attachmentResultHolder.getMeta();
                     currentRow.add(meta == null ?
                             ImmutableNilValueImpl.get()
                             : new ImmutableStringValueImpl(meta));
-                    break;
-                case GdsConstants.OWNER_ID_FIELD:
+                }
+                case GdsConstants.OWNER_ID_FIELD -> {
                     Value[] array = new Value[attachmentResultHolder.getOwnerIds().size()];
                     for (int i = 0; i < attachmentResultHolder.getOwnerIds().size(); i++) {
                         array[i] = new ImmutableStringValueImpl(attachmentResultHolder.getOwnerIds().get(i));
                     }
                     currentRow.add(new ImmutableArrayValueImpl(array));
-                    break;
-                case GdsConstants.DATA_FIELD:
-                    currentRow.add(new ImmutableBinaryValueImpl(attachmentResultHolder.getAttachment()));
-                    break;
-                case GdsConstants.TTL_FIELD:
-                    currentRow.add(new ImmutableLongValueImpl(attachmentResultHolder.getTtl()));
-                    break;
-                case GdsConstants.TO_VALID_FIELD:
-                    currentRow.add(new ImmutableLongValueImpl(attachmentResultHolder.getToValid()));
-                    break;
+                }
+                case GdsConstants.DATA_FIELD ->
+                        currentRow.add(new ImmutableBinaryValueImpl(attachmentResultHolder.getAttachment()));
+                case GdsConstants.TTL_FIELD ->
+                        currentRow.add(new ImmutableLongValueImpl(attachmentResultHolder.getTtl()));
+                case GdsConstants.TO_VALID_FIELD ->
+                        currentRow.add(new ImmutableLongValueImpl(attachmentResultHolder.getToValid()));
             }
         }
         return true;

@@ -1,7 +1,5 @@
 package hu.gds.jdbc.util;
 
-import java.util.Arrays;
-import java.util.Collections;
 import java.util.List;
 
 public class GdsConstants {
@@ -27,9 +25,5 @@ public class GdsConstants {
         return ONLY_READABLE_FIELDS.contains(field);
     }
 
-    public static final List<String> ONLY_READABLE_FIELDS = Collections.unmodifiableList(Arrays.asList(
-            TIMESTAMP_FIELD,
-            TO_VALID_FIELD,
-            VERSION_FIELD
-    ));
+    public static final List<String> ONLY_READABLE_FIELDS = List.of(TIMESTAMP_FIELD, TO_VALID_FIELD, VERSION_FIELD);
 }

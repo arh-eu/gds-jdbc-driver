@@ -920,7 +920,7 @@ public abstract class AbstractGdsResultSet implements ResultSet {
             hexDigits[1] = Character.forDigit((b & 0xF), 16);
             hexStringBuffer.append(hexDigits);
         }
-        this.updateValue(columnIndex, "0x" + hexStringBuffer.toString());
+        this.updateValue(columnIndex, "0x" + hexStringBuffer);
     }
 
     private void updateTimestamp(int columnIndex, Long value) throws SQLException {
@@ -1123,7 +1123,7 @@ public abstract class AbstractGdsResultSet implements ResultSet {
         for (String columnName : columnNamesList) {
             columnNames.add("\"" + columnName + "\"");
         }
-        String selectSql = "SELECT " + columnNames.toString() + " FROM " + "\"" + getTableName() + "\"" + " WHERE " + GdsConstants.ID_FIELD + "='" + id + "'";
+        String selectSql = "SELECT " + columnNames + " FROM " + "\"" + getTableName() + "\"" + " WHERE " + GdsConstants.ID_FIELD + "='" + id + "'";
         GdsStatement selectStatement = (GdsStatement) statement.getConnection().createStatement();
         selectStatement.executeInnerQuery(selectSql);
         return (DQLResultSet) selectStatement.getResultSet();
@@ -1191,7 +1191,7 @@ public abstract class AbstractGdsResultSet implements ResultSet {
             } else if (entry.getValue() instanceof Object[]) {
                 insertValues.add(arrayToString((Object[]) entry.getValue()));
             } else if (entry.getValue() instanceof String) {
-                insertValues.add("'" + entry.getValue().toString() + "'");
+                insertValues.add("'" + entry.getValue() + "'");
             } else {
                 insertValues.add(entry.getValue().toString());
             }
@@ -1222,7 +1222,7 @@ public abstract class AbstractGdsResultSet implements ResultSet {
                         if (value == null) {
                             temp += "null";
                         } else if (value instanceof String) {
-                            temp += "'" + value.toString() + "'";
+                            temp += "'" + value + "'";
                         } else if (value instanceof Object[]) {
                             temp += arrayToString((Object[]) value);
                         } else {

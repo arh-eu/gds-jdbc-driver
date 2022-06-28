@@ -54,12 +54,7 @@ public class PasswordAuthenticator implements Authenticator {
          */
         public PasswordAuthenticator.Builder username(final String username) throws InvalidArgumentException {
             notNullOrEmpty(username, "Username");
-            return username(new Supplier<String>() {
-                @Override
-                public String get() {
-                    return username;
-                }
-            });
+            return username(() -> username);
         }
 
         /**
@@ -89,12 +84,7 @@ public class PasswordAuthenticator implements Authenticator {
          */
         public PasswordAuthenticator.Builder password(final String password) throws InvalidArgumentException {
             notNullOrEmpty(password, "Password");
-            return password(new Supplier<String>() {
-                @Override
-                public String get() {
-                    return password;
-                }
-            });
+            return password(() -> password);
         }
 
         /**

@@ -1496,8 +1496,7 @@ public class GdsDatabaseMetaData implements DatabaseMetaData {
     }
 
     public boolean supportsMultipleTransactions() {
-        // GDS does not support transactions.
-        return false;
+        return true;
     }
 
     public boolean supportsNonNullableColumns() {
@@ -1682,22 +1681,18 @@ public class GdsDatabaseMetaData implements DatabaseMetaData {
     }
 
     public boolean supportsOpenCursorsAcrossCommit() {
-        // There is no transaction support in the GDS.
         return false;
     }
 
     public boolean supportsOpenCursorsAcrossRollback() {
-        // There is no transaction support in the GDS.
         return false;
     }
 
     public boolean supportsOpenStatementsAcrossCommit() {
-        // There is no transaction support in the GDS.
         return false;
     }
 
     public boolean supportsOpenStatementsAcrossRollback() {
-        // There is no transaction support in the GDS.
         return false;
     }
 
@@ -1808,37 +1803,30 @@ public class GdsDatabaseMetaData implements DatabaseMetaData {
     }
 
     public int getDefaultTransactionIsolation() {
-        // GDS does not support transactions.
-        return Connection.TRANSACTION_NONE;
+        return Connection.TRANSACTION_READ_COMMITTED;
     }
 
     public boolean supportsTransactions() {
-        // GDS does not support transactions.
-        return false;
+        return true;
     }
 
     public boolean supportsTransactionIsolationLevel(int level) {
-        // GDS does not support transactions.
-        return Connection.TRANSACTION_NONE == level;
+        return Connection.TRANSACTION_READ_COMMITTED == level;
     }
 
     public boolean supportsDataDefinitionAndDataManipulationTransactions() {
-        // GDS does not support transactions.
         return false;
     }
 
     public boolean supportsDataManipulationTransactionsOnly() {
-        // GDS does not support transactions.
-        return false;
+        return true;
     }
 
     public boolean dataDefinitionCausesTransactionCommit() {
-        // GDS does not support transactions.
         return false;
     }
 
     public boolean dataDefinitionIgnoredInTransactions() {
-        // GDS does not support transactions, therefore it ignores everything during (non-existing) transactions.
         return true;
     }
 
@@ -2001,8 +1989,7 @@ public class GdsDatabaseMetaData implements DatabaseMetaData {
 
     @Override
     public boolean supportsSavepoints() {
-        // GDS does not support transactions
-        return false;
+        return true;
     }
 
     @Override
@@ -2046,13 +2033,11 @@ public class GdsDatabaseMetaData implements DatabaseMetaData {
 
     @Override
     public boolean supportsResultSetHoldability(int holdability) {
-        // GDS does not support transactions
-        return false;
+        return true;
     }
 
     @Override
     public int getResultSetHoldability() {
-        // GDS does not support transactions
         return ResultSet.HOLD_CURSORS_OVER_COMMIT;
     }
 
@@ -2111,7 +2096,6 @@ public class GdsDatabaseMetaData implements DatabaseMetaData {
 
     @Override
     public boolean autoCommitFailureClosesAllResultSets() {
-        // GDS does not have transactions.
         return false;
     }
 
